@@ -1,42 +1,52 @@
 #!/bin/bash
-
 # ============================================================
-# Daily Digest Portal — Runner Script
-# Runs all newsletter generators, builds portal, serves on :8787
+# Daily Digest Portal — Runner Script (v2)
+# Assembles prompts, runs newsletters, builds portal, serves.
 # ============================================================
-
 source ~/.zshrc 2>/dev/null || source ~/.bash_profile 2>/dev/null
+REPO="$HOME/newsletters"
 
-NEWSLETTERS_DIR=~/newsletters
+# --- Assemble prompts (topic.md + design-guide + ops-guide → prompt.md) ---
+uv run "$REPO/shared/assemble_prompt.py" claude-digest || { echo "ERROR: assemble claude-digest failed"; exit 1; }
+uv run "$REPO/shared/assemble_prompt.py" google-ai     || { echo "ERROR: assemble google-ai failed"; exit 1; }
+uv run "$REPO/shared/assemble_prompt.py" us-iran-war   || { echo "ERROR: assemble us-iran-war failed"; exit 1; }
 
-# --- Run each newsletter generator ---
-
-# Claude Digest
-claude --task "$(cat $NEWSLETTERS_DIR/topics/claude-digest/prompt.md)" \
+# --- Run newsletter generators ---
+claude --task "$(cat $REPO/topics/claude-digest/prompt.md)" \
   --channels plugin:telegram@claude-plugins-official \
-  --dangerously-skip-permissions \
-  --max-turns 25
+  --dangerously-skip-permissions --max-turns 25
 
-# Google AI Digest
-claude --task "$(cat $NEWSLETTERS_DIR/topics/google-ai/prompt.md)" \
+claude --task "$(cat $REPO/topics/google-ai/prompt.md)" \
   --channels plugin:telegram@claude-plugins-official \
-  --dangerously-skip-permissions \
-  --max-turns 25
+  --dangerously-skip-permissions --max-turns 25
 
-# US-Iran Conflict Briefing
-claude --task "$(cat $NEWSLETTERS_DIR/topics/us-iran-war/prompt.md)" \
+claude --task "$(cat $REPO/topics/us-iran-war/prompt.md)" \
   --channels plugin:telegram@claude-plugins-official \
-  --dangerously-skip-permissions \
-  --max-turns 25
+  --dangerously-skip-permissions --max-turns 25
 
-# --- Build the portal ---
-cd $NEWSLETTERS_DIR && uv run shared/build.py
+# --- Generate NotebookLM media (non-fatal; full impl in Plan B) ---
+uv run python -c "
+from shared.notebooklm_runner import generate_issue_media
+from datetime import datetime
+today = datetime.now().strftime('%Y-%m-%d')
+for slug in ['claude-digest', 'google-ai', 'us-iran-war']:
+    generate_issue_media(slug, today)
+" || echo "NotebookLM media: skipped (Plan A stub)"
 
-# --- Serve on single port ---
+# --- Build portal ---
+cd "$REPO" && uv run shared/build.py
+
+# --- Serve (FastAPI replaces python3 -m http.server) ---
 lsof -ti:8787 | xargs kill 2>/dev/null
-lsof -ti:8788 | xargs kill 2>/dev/null
-lsof -ti:8789 | xargs kill 2>/dev/null
-cd $NEWSLETTERS_DIR/dist && nohup python3 -m http.server 8787 > /dev/null 2>&1 &
+sleep 1
+nohup uv run --directory "$REPO" -m server.main > /tmp/newsletter-server.log 2>&1 &
 
-# Log it
-echo "$(date): portal built and served" >> $NEWSLETTERS_DIR/log.txt
+# --- On-demand Telegram listener (stub file exists; full behavior in Plan B) ---
+# Kills any existing listener and starts a new one
+lsof -ti:0 -c claude 2>/dev/null | xargs kill 2>/dev/null || true
+nohup claude --task "$(cat $REPO/shared/prompts/on-demand-listener.md)" \
+  --channels plugin:telegram@claude-plugins-official \
+  --dangerously-skip-permissions --max-turns 200 \
+  > /tmp/newsletter-listener.log 2>&1 &
+
+echo "$(date): portal built and served" >> "$REPO/log.txt"
