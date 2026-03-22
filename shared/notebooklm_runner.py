@@ -53,15 +53,11 @@ def _get_or_create_notebook(slug: str, date: str) -> str:
     if id_file.exists():
         return id_file.read_text().strip()
 
-    # Find source file: prefer dated HTML, fall back to markdown
-    html_file = REPO_ROOT / "topics" / slug / "site" / f"{date}.html"
+    # Find source file: prefer markdown (NotebookLM doesn't accept HTML), fall back to nothing
     md_file   = REPO_ROOT / "topics" / slug / f"{date}.md"
-    source_file = html_file if html_file.exists() else md_file
+    source_file = md_file
     if not source_file.exists():
-        raise FileNotFoundError(
-            f"No content file found for {slug}/{date} "
-            f"(checked {html_file} and {md_file})"
-        )
+        raise FileNotFoundError(f"No markdown file found for {slug}/{date} (checked {md_file})")
 
     # Create notebook
     data = _nlm_json("create", "newsletters")
