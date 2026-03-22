@@ -1,0 +1,5 @@
+# Assembled prompt artifacts — never commit
+topics/*/prompt.md
+
+# Server logs
+/tmp/newsletter-*.log
