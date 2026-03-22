@@ -70,7 +70,7 @@ def _get_or_create_notebook(slug: str, date: str) -> str:
         "--notebook", notebook_id,
         timeout=30,
     )
-    source_id: str = source_data["source_id"]
+    source_id: str = source_data["source"]["id"]
     logger.info("Added source %s, waiting for processing…", source_id)
 
     # Wait for source to be ready (up to 5 min)
