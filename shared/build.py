@@ -117,27 +117,132 @@ def inject_nav(html: str, nav_html: str, slug: str = "", date: str = "") -> str:
 
 
 def discover_media(topic_dir: Path, date: str) -> dict[str, Path | None]:
-    """Find media files for a given date. Full impl in Plan B."""
-    return {"infographic": None, "slides": None}
+    """Find media files for a given date in topics/<slug>/media/."""
+    media_dir = topic_dir / "media"
+    if not media_dir.exists():
+        return {"infographic": None, "slides": None, "podcast": None, "video": None}
+    return {
+        "infographic": next(media_dir.glob(f"{date}-infographic.png"), None),
+        "slides":      next(media_dir.glob(f"{date}-slides.pdf"),      None),
+        "podcast":     next(media_dir.glob(f"{date}-podcast.mp3"),     None),
+        "video":       next(media_dir.glob(f"{date}-video.mp4"),       None),
+    }
 
 
 def copy_media(media: dict[str, Path | None], topic_dist: Path) -> dict[str, str]:
-    """Copy media files to dist dir. Full impl in Plan B. Returns relative URLs."""
-    return {}
+    """Copy media files to dist/<slug>/media/. Returns relative URLs."""
+    import shutil as _shutil
+    media_dist = topic_dist / "media"
+    urls: dict[str, str] = {}
+    for key, src in media.items():
+        if src and src.exists():
+            media_dist.mkdir(exist_ok=True)
+            dst = media_dist / src.name
+            _shutil.copy2(src, dst)
+            urls[key] = f"media/{src.name}"
+    return urls
 
 
 def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
-    """Render media section HTML from media URL dict.
+    """Render media section HTML.
 
-    Plan A: renders placeholder stub regardless of media dict content.
-    Plan B: renders infographic img, slides embed, and on-demand buttons.
+    Shows infographic and slides if available.
+    Shows Generate buttons for podcast/video (calls /api/generate/{slug}/{date}/{type}).
     """
+    parts: list[str] = []
+
+    if media.get("infographic"):
+        parts.append(
+            f'<div class="media-item media-infographic">'
+            f'<div class="media-label">Infographic</div>'
+            f'<img src="{media["infographic"]}" alt="Issue infographic" class="media-img">'
+            f'</div>'
+        )
+
+    if media.get("slides"):
+        parts.append(
+            f'<div class="media-item media-slides">'
+            f'<div class="media-label">Slide Deck</div>'
+            f'<a href="{media["slides"]}" class="media-download" target="_blank" download>'
+            f'&#x1F4F2; Download Slides (PDF)</a>'
+            f'</div>'
+        )
+
+    if media.get("podcast"):
+        parts.append(
+            f'<div class="media-item media-podcast">'
+            f'<div class="media-label">Podcast</div>'
+            f'<audio controls class="media-audio" src="{media["podcast"]}"></audio>'
+            f'</div>'
+        )
+    else:
+        parts.append(
+            f'<div class="media-item media-on-demand" id="pod-{slug}-{date}">'
+            f'<div class="media-label">Podcast</div>'
+            f'<button class="media-gen-btn" '
+            f'onclick="startGeneration(\'{slug}\',\'{date}\',\'podcast\',this)">'
+            f'&#x25B6; Generate Podcast</button>'
+            f'</div>'
+        )
+
+    if media.get("video"):
+        parts.append(
+            f'<div class="media-item media-video">'
+            f'<div class="media-label">Video</div>'
+            f'<video controls class="media-video-player" src="{media["video"]}"></video>'
+            f'</div>'
+        )
+    else:
+        parts.append(
+            f'<div class="media-item media-on-demand" id="vid-{slug}-{date}">'
+            f'<div class="media-label">Video</div>'
+            f'<button class="media-gen-btn" '
+            f'onclick="startGeneration(\'{slug}\',\'{date}\',\'video\',this)">'
+            f'&#x25B6; Generate Video</button>'
+            f'</div>'
+        )
+
+    inner = "\n".join(parts)
+    script = _media_js()
     return (
-        f'<section class="portal-media-section" '
-        f'data-slug="{slug}" data-date="{date}">'
-        f'<!-- Media assets generated in Plan B -->'
+        f'<section class="portal-media-section" data-slug="{slug}" data-date="{date}">\n'
+        f'<h2 class="section-title">Media</h2>\n'
+        f'<div class="media-grid">\n{inner}\n</div>\n'
+        f'{script}\n'
         f'</section>'
     )
+
+
+def _media_js() -> str:
+    """Inline JS for on-demand media generation buttons (injected once per page)."""
+    return """<script>
+function startGeneration(slug, date, type, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+  fetch('/api/generate/' + slug + '/' + date + '/' + type, {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+      if (data.job_id) pollJob(data.job_id, slug, date, type, btn);
+      else { btn.textContent = '❌ Error'; btn.disabled = false; }
+    })
+    .catch(() => { btn.textContent = '❌ Error'; btn.disabled = false; });
+}
+function pollJob(jobId, slug, date, type, btn) {
+  fetch('/api/jobs/' + jobId)
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'done') { location.reload(); }
+      else if (data.status === 'failed') {
+        btn.textContent = '❌ Failed: ' + (data.error || 'unknown');
+        btn.disabled = false;
+      } else {
+        btn.textContent = '⏳ ' + (data.step || 'Generating…');
+        setTimeout(() => pollJob(jobId, slug, date, type, btn), 10000);
+      }
+    })
+    .catch(() => setTimeout(() => pollJob(jobId, slug, date, type, btn), 15000));
+}
+</script>"""
 
 
 def render_topic_card(slug: str, topic: dict, meta: dict) -> str:

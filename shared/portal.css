@@ -251,3 +251,79 @@ body.has-portal-nav {
     font-size: 22px;
   }
 }
+
+/* ── Media Section ───────────────────────────────────────── */
+.portal-media-section {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.media-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.media-label {
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.media-img {
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.media-download {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 3px;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.media-audio {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.media-video-player {
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.media-gen-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s;
+}
+.media-gen-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.media-gen-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

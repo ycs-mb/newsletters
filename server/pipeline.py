@@ -131,6 +131,32 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
+def _media_generation_job(job_id: str, slug: str, date: str, artifact_type: str) -> None:
+    """Generate one on-demand media artifact (podcast or video). Runs in thread pool."""
+    try:
+        jobs.update(job_id, step=f"Setting up NotebookLM notebook…", status=JobStatus.running)
+        from shared.notebooklm_runner import start_on_demand_artifact, wait_and_download_on_demand
+        notebook_id, task_id = start_on_demand_artifact(slug, date, artifact_type)
+
+        label = "podcast" if artifact_type == "podcast" else "video"
+        jobs.update(job_id, step=f"Generating {label} (this takes 10–45 min)…")
+        rel_path = wait_and_download_on_demand(slug, date, artifact_type, notebook_id, task_id)
+
+        jobs.update(job_id, step="Building portal…")
+        subprocess.run(["uv", "run", "shared/build.py"], cwd=REPO_ROOT, check=True)
+
+        artifact_url = f"/{slug}/media/{Path(rel_path).name}"
+        jobs.update(job_id, step="Done ✓", status=JobStatus.done, artifact_url=artifact_url)
+
+    except Exception as e:
+        jobs.update(job_id, status=JobStatus.failed, error=str(e))
+
+
+def submit_media_generation(job_id: str, slug: str, date: str, artifact_type: str) -> None:
+    """Submit on-demand media generation to the thread pool."""
+    _executor.submit(_media_generation_job, job_id, slug, date, artifact_type)
+
+
 def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> None:
     """Submit topic creation to the thread pool. Called by FastAPI background task."""
     _executor.submit(_create_topic_job, job_id, slug, payload)
