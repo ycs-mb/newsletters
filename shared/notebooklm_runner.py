@@ -64,9 +64,8 @@ def _get_or_create_notebook(slug: str, date: str) -> str:
         )
 
     # Create notebook
-    title = f"{slug} — {date}"
-    data = _nlm_json("create", title)
-    notebook_id: str = data["id"]
+    data = _nlm_json("create", "newsletters")
+    notebook_id: str = data["notebook"]["id"]
     logger.info("Created notebook %s for %s/%s", notebook_id, slug, date)
 
     # Add source
