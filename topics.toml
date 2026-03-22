@@ -1,0 +1,26 @@
+# Newsletter Portal — Topic Configuration
+# Each section key is the URL slug used in dist/<slug>/
+
+[claude-digest]
+name = "Claude Digest"
+description = "Daily intelligence brief on Anthropic, Claude Code, and the Claude ecosystem"
+accent = "terracotta"
+signal_label = "Signal"
+folder = "topics/claude-digest"
+eyebrow = "Daily Intelligence Brief"
+
+[us-iran-war]
+name = "US–Iran Conflict"
+description = "Geopolitical intelligence briefing on the US-Iran war and regional fallout"
+accent = "sage"
+signal_label = "Escalation"
+folder = "topics/us-iran-war"
+eyebrow = "Daily Intelligence Brief"
+
+[google-ai]
+name = "Google AI"
+description = "Model releases, API updates, and strategic developments from Google's AI division"
+accent = "prussian"
+signal_label = "Signal"
+folder = "topics/google-ai"
+eyebrow = "Daily Intelligence Brief"

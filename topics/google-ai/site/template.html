@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google AI Digest — {{DATE_TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,300;1,7..72,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <header class="masthead">
+    <div class="masthead-rules">
+      <div class="rule-thick"></div>
+      <div class="rule-thin"></div>
+    </div>
+
+    <div class="masthead-eyebrow">Daily Intelligence Brief</div>
+    <h1 class="masthead-title">Google <em>AI</em></h1>
+    <div class="masthead-date">{{DATE_LONG}}</div>
+
+    <div class="masthead-bottom">
+      <span class="masthead-meta">Automated via Claude Code</span>
+      <div class="signal">
+        <span class="signal-label">Signal</span>
+        <div class="signal-dots">
+          {{SIGNAL_DOTS}}
+        </div>
+        <span class="signal-rating">{{SIGNAL_RATING}}</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">01</span>
+      <h2>Model Releases &amp; API</h2>
+      <span class="section-sub">{{VERSION_RANGE}}</span>
+    </div>
+    <div class="release-list reveal-stagger reveal">
+      {{RELEASE_ITEMS}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">02</span>
+      <h2>Strategic Highlights</h2>
+    </div>
+    <div class="highlight-grid reveal-stagger reveal">
+      {{HIGHLIGHT_CARDS}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">03</span>
+      <h2>GitHub Picks</h2>
+      <span class="section-sub">{{REPO_COUNT}} repos</span>
+    </div>
+    <div class="repo-list reveal-stagger reveal">
+      {{REPO_CARDS}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">04</span>
+      <h2>Community &amp; Research</h2>
+    </div>
+    <div class="reveal">
+      {{COMMUNITY_BLOCKS}}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">05</span>
+      <h2>Tip of the Day</h2>
+    </div>
+    <div class="reveal">
+      <div class="tip-container">
+        <div class="tip-label">Actionable</div>
+        <div class="tip-text">
+          {{TIP_CONTENT}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-rules">
+      <div class="rule-thin" style="height:1px;background:var(--rule)"></div>
+      <div class="rule-thick" style="height:3px;background:var(--ink)"></div>
+    </div>
+    <div class="footer-text">Google AI Digest &middot; Automated via Claude Code</div>
+    <div class="footer-colophon">{{FOOTER_COLOPHON}}</div>
+  </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+  document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => {
+    observer.observe(el);
+  });
+});
+</script>
+
+</body>
+</html>
