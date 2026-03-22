@@ -92,7 +92,7 @@ def render_nav(topic_name: str, current_date: str, dates: list[str], current_idx
     )
 
 
-def inject_nav(html: str, nav_html: str) -> str:
+def inject_nav(html: str, nav_html: str, slug: str = "", date: str = "") -> str:
     """Inject nav bar into existing HTML: add portal.css, body class, nav element."""
     # Rewrite style.css path to ../style.css (one level up from dist/<slug>/)
     html = re.sub(
@@ -101,8 +101,9 @@ def inject_nav(html: str, nav_html: str) -> str:
         html,
     )
 
-    # Add has-portal-nav class to body
-    html = re.sub(r"<body([^>]*)>", r'<body\1 class="has-portal-nav">', html, count=1)
+    # Add has-portal-nav class and data-slug/data-date to body
+    data_attrs = f' data-slug="{slug}" data-date="{date}"' if slug else ""
+    html = re.sub(r"<body([^>]*)>", rf'<body\1 class="has-portal-nav"{data_attrs}>', html, count=1)
 
     # Insert nav right after <body ...>
     html = re.sub(
@@ -113,6 +114,30 @@ def inject_nav(html: str, nav_html: str) -> str:
     )
 
     return html
+
+
+def discover_media(topic_dir: Path, date: str) -> dict[str, Path | None]:
+    """Find media files for a given date. Full impl in Plan B."""
+    return {"infographic": None, "slides": None}
+
+
+def copy_media(media: dict[str, Path | None], topic_dist: Path) -> dict[str, str]:
+    """Copy media files to dist dir. Full impl in Plan B. Returns relative URLs."""
+    return {}
+
+
+def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
+    """Render media section HTML from media URL dict.
+
+    Plan A: renders placeholder stub regardless of media dict content.
+    Plan B: renders infographic img, slides embed, and on-demand buttons.
+    """
+    return (
+        f'<section class="portal-media-section" '
+        f'data-slug="{slug}" data-date="{date}">'
+        f'<!-- Media assets generated in Plan B -->'
+        f'</section>'
+    )
 
 
 def render_topic_card(slug: str, topic: dict, meta: dict) -> str:
@@ -207,7 +232,10 @@ def build():
                 continue
 
             nav_html = render_nav(topic["name"], date, dates, i)
-            output_html = inject_nav(page_html, nav_html)
+            output_html = inject_nav(page_html, nav_html, slug=slug, date=date)
+            media = copy_media(discover_media(topic_dir, date), topic_dist)
+            media_html = render_media_section(slug, date, media)
+            output_html = output_html.replace("{{MEDIA_SECTION}}", media_html)
 
             # Write dated page
             (topic_dist / f"{date}.html").write_text(output_html)
