@@ -35,7 +35,7 @@ for slug in $SLUGS; do
   uv run "$REPO/shared/assemble_prompt.py" "$slug" || { echo "ERROR: assemble $slug failed"; continue; }
 
   echo "--- Generating newsletter for $slug ---"
-  claude --task "$(cat $REPO/topics/$slug/prompt.md)" \
+  claude -p "$(cat $REPO/topics/$slug/prompt.md)" \
     --channels plugin:telegram@claude-plugins-official \
     --dangerously-skip-permissions --max-turns 25
 done
@@ -61,7 +61,7 @@ nohup uv run --directory "$REPO" -m server.main > /tmp/newsletter-server.log 2>&
 
 # --- On-demand Telegram listener ---
 lsof -ti:0 -c claude 2>/dev/null | xargs kill 2>/dev/null || true
-nohup claude --task "$(cat $REPO/shared/prompts/on-demand-listener.md)" \
+nohup claude -p "$(cat $REPO/shared/prompts/on-demand-listener.md)" \
   --channels plugin:telegram@claude-plugins-official \
   --dangerously-skip-permissions --max-turns 200 \
   > /tmp/newsletter-listener.log 2>&1 &

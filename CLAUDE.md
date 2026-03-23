@@ -19,7 +19,7 @@ bash run.sh
 cd dist && python3 -m http.server 8787
 
 # Run a single newsletter (e.g., Google AI only)
-claude --task "$(cat topics/google-ai/prompt.md)" \
+claude -p "$(cat topics/google-ai/prompt.md)" \
   --channels plugin:telegram@claude-plugins-official \
   --dangerously-skip-permissions --max-turns 25
 

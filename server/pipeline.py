@@ -30,7 +30,7 @@ def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> No
 def _run_claude(task: str, max_turns: int = 10) -> None:
     """Invoke claude CLI via subprocess. Raises RuntimeError on non-zero exit."""
     result = subprocess.run(
-        ["claude", "--task", task, "--dangerously-skip-permissions",
+        ["claude", "-p", task, "--dangerously-skip-permissions",
          "--max-turns", str(max_turns)],
         cwd=REPO_ROOT,
         capture_output=True,
