@@ -130,9 +130,9 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
     """Create a new topic.
 
     1. Immediately registers in topics.json and scaffolds the folder.
-    2. If topic_md content is provided directly, it is written as-is.
-    3. If topic_md is absent but description/focus_areas are given, a
-       structured topic.md is generated from the form data (no Claude CLI).
+    2. If topic_md is provided, writes it to disk — topic is immediately ready.
+    3. If topic_md is absent but description/focus_areas are given, launches
+       a background Claude CLI job to generate a proper topic.md.
     4. Otherwise, topic is registered but not ready — user must provide topic.md.
     """
     slug = _slugify(payload.name)
@@ -154,21 +154,18 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
     result: dict = {"slug": slug, "registered": True}
 
     if payload.topic_md.strip():
-        # User provided topic.md content directly
-        content = payload.topic_md
-    elif payload.focus_areas.strip() or payload.description.strip():
-        # Generate topic.md from form data — no Claude CLI required
-        content = _generate_topic_md(
-            payload.name, payload.description,
-            payload.focus_areas, payload.signal_label,
-        )
-    else:
-        content = ""
-
-    if content:
-        (topic_dir / "topic.md").write_text(content)
+        # User pasted topic.md directly — write it and mark ready immediately
+        (topic_dir / "topic.md").write_text(payload.topic_md)
         result["topic_md_written"] = True
         result["ready"] = True
+    elif payload.focus_areas.strip() or payload.description.strip():
+        # Launch Claude CLI in background to generate a proper topic.md
+        job_id = jobs.create()
+        from server.pipeline import submit_topic_md_generation
+        background_tasks.add_task(submit_topic_md_generation, job_id, slug, payload)
+        result["job_id"] = job_id
+        result["ready"] = False
+        result["message"] = "Claude is generating topic.md — poll /api/jobs/{job_id} for status."
     else:
         result["ready"] = False
         result["message"] = "Topic registered. Provide topic.md via PUT /api/topics/{slug}/topic-md to make it ready."

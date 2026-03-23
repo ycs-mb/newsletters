@@ -187,21 +187,81 @@ def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> Non
     _executor.submit(_create_topic_job, job_id, slug, payload)
 
 
+_TOPIC_MD_PROMPT = """\
+Write a topic.md file for a newsletter automation system.
+Output ONLY the file `topics/{slug}/topic.md` using the Write tool. Do not create any other files.
+
+## Newsletter Details
+
+Topic name: {name}
+Description: {description}
+Signal label: {signal_label}
+
+## Focus Areas Provided by User
+
+{focus_areas}
+
+## Required topic.md Structure
+
+The file must follow this EXACT structure (three sections, nothing else):
+
+```
+# {name} — Topic Brief
+
+## Identity
+- Role: newsletter curator covering [concise role description derived from the topic]
+- Audience: [who reads this newsletter]
+- Signal label: {signal_label} (1–5, where 5 = [describe what a 5 means for this topic])
+
+## Sources
+
+[Categorized, specific sources to monitor — real URLs where possible]
+**Official / Primary:**
+- ...
+
+**GitHub / Open Source:**
+- ...
+
+**Community:**
+- Subreddits, Discord servers, X/Twitter accounts, HN searches
+
+**Research & Publications:**
+- Journals, preprints, conference proceedings
+
+## Sections
+
+### Section 01: [Adapt title — official releases, core updates, or breaking news]
+[Research instructions: what to search for, how many items, what to include per item]
+
+### Section 02: [Highlights / Major Announcements]
+[Research instructions. Highlight card categories: `voice` (people/opinion), `model` (tech/products), `company` (org news), `promo` (partnerships). Aim for 4–6 cards.]
+
+### Section 03: GitHub Picks (past 7 days)
+[Search terms, repo criteria, what to include per repo. Aim for 5–8 repos.]
+
+### Section 04: Community & Research (past 24 hours)
+[Which communities to check, what to surface, how to format entries]
+
+### Section 05: Tip of the Day
+[What kind of tip fits this topic. One actionable, non-obvious insight with an example if applicable.]
+```
+
+Use the focus areas above to fill in all the topic-specific content — real source URLs, adapted section titles, and precise research instructions. The file must be immediately usable as a newsletter research brief.
+"""
+
+
 def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
-    """Generate topic.md for an already-registered topic. Best-effort."""
+    """Generate topic.md for an already-registered topic via Claude CLI."""
     try:
         _update(job_id, "Generating topic.md via Claude…")
-        _run_claude(
-            f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
-            f"Topic name: {payload.name}\n"
-            f"Description: {payload.description}\n"
-            f"Focus areas: {payload.focus_areas}\n"
-            f"Output path: topics/{slug}/topic.md\n"
-            f"Format: Identity section (role, audience, signal label) + Sources + Sections only.\n"
-            f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
-            f"Do NOT generate prompt.md. Write topic.md only.",
-            max_turns=10,
+        prompt = _TOPIC_MD_PROMPT.format(
+            slug=slug,
+            name=payload.name,
+            description=payload.description or payload.name,
+            signal_label=payload.signal_label or "Signal",
+            focus_areas=payload.focus_areas.strip() or "(none provided — use best judgement)",
         )
+        _run_claude(prompt, max_turns=10)
         topic_md = REPO_ROOT / "topics" / slug / "topic.md"
         if not topic_md.exists():
             raise RuntimeError(f"Claude did not produce topics/{slug}/topic.md")

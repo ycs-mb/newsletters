@@ -110,20 +110,18 @@ class TopicsRouterTest(unittest.TestCase):
         # Verify topic.md is on disk
         self.assertTrue((self.root / "topics" / "alpha-news" / "topic.md").exists())
 
-    def test_create_with_focus_areas_generates_topic_md(self):
+    def test_create_with_focus_areas_launches_background_job(self):
         payload = {
             "name": "Quantum Computing",
             "description": "A newsletter on quantum breakthroughs.",
             "focus_areas": "- Superconducting qubits\n- IBM, Google, Microsoft\n- Post-quantum cryptography",
         }
-        r = self.client.post("/api/topics", json=payload)
+        with patch("server.pipeline.submit_topic_md_generation"):
+            r = self.client.post("/api/topics", json=payload)
         self.assertEqual(r.status_code, 200)
         data = r.json()
-        self.assertTrue(data["ready"])
-        self.assertTrue(data["topic_md_written"])
-        content = (self.root / "topics" / "quantum-computing" / "topic.md").read_text()
-        self.assertIn("Quantum Computing", content)
-        self.assertIn("Superconducting qubits", content)
+        self.assertFalse(data["ready"])
+        self.assertIn("job_id", data)
 
     def test_create_minimal_no_topic_md(self):
         payload = {"name": "Bare Topic"}
