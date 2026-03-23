@@ -327,3 +327,66 @@ body.has-portal-nav {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ═══════════════════════ NEWSROOM BUTTON ════════════════════════ */
+
+/* Masthead button — replaces the old inline text link */
+.newsroom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  padding: 5px 12px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.newsroom-btn:hover {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.newsroom-btn-icon {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* CTA below the topic grid */
+.newsroom-cta {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.newsroom-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--ink);
+  padding: 12px 28px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.newsroom-cta-btn:hover {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+}
+
+.newsroom-cta-btn span {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 300;
+}
