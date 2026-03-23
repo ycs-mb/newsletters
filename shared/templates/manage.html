@@ -594,6 +594,116 @@
   .topic-desc-cell { display: none; }
   .topic-table thead th:nth-child(2) { display: none; }
 }
+
+/* ── Log Drawer ──────────────────────────────────────────────── */
+.log-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1500;
+  background: #0f0d0b;
+  border-top: 2px solid var(--terracotta);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-drawer.open {
+  transform: translateY(0);
+}
+
+.log-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.log-drawer-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--terracotta);
+}
+
+.log-drawer-step {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.5px;
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 12px;
+}
+
+.log-drawer-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.log-drawer-close:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.log-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 20px 14px;
+}
+
+.log-line {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.85;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: var(--terracotta);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.log-drawer-body::-webkit-scrollbar {
+  width: 3px;
+}
+
+.log-drawer-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.log-drawer-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
 </style>
 </head>
 <body class="newsroom-body">
@@ -739,6 +849,18 @@
 <!-- Confirm dialog (hidden) -->
 <div class="confirm-overlay" id="confirm-overlay" style="display:none"></div>
 
+<!-- Log Drawer -->
+<div class="log-drawer" id="log-drawer">
+  <div class="log-drawer-header">
+    <span class="log-drawer-title" id="drawer-title">Generation Log</span>
+    <span class="log-drawer-step" id="drawer-step"></span>
+    <button class="log-drawer-close" onclick="closeDrawer()">✕ close</button>
+  </div>
+  <div class="log-drawer-body" id="drawer-body">
+    <span class="log-cursor" id="drawer-cursor"></span>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // Newsroom — Topic Management Logic
@@ -749,6 +871,87 @@ const API = '/api';
 // ── State ──
 let topics = {};
 let activeJobs = {};
+
+// ── Log Drawer ──
+let _drawerJobId = null;
+let _drawerLogInterval = null;
+let _drawerLogOffset = 0;
+let _drawerStepInterval = null;
+
+function openDrawer(jobId, label) {
+  _drawerJobId = jobId;
+  _drawerLogOffset = 0;
+  document.getElementById('drawer-title').textContent = `Log — ${label}`;
+  document.getElementById('drawer-step').textContent = '';
+  const body = document.getElementById('drawer-body');
+  body.innerHTML = '<span class="log-cursor" id="drawer-cursor"></span>';
+  document.getElementById('log-drawer').classList.add('open');
+  _startDrawerPolling();
+}
+
+function closeDrawer() {
+  document.getElementById('log-drawer').classList.remove('open');
+  _stopDrawerPolling();
+}
+
+function _appendDrawerLine(text) {
+  const body = document.getElementById('drawer-body');
+  const cursor = document.getElementById('drawer-cursor');
+  const el = document.createElement('div');
+  el.className = 'log-line';
+  el.textContent = text;
+  if (cursor) {
+    body.insertBefore(el, cursor);
+  } else {
+    body.appendChild(el);
+  }
+  body.scrollTop = body.scrollHeight;
+}
+
+function _startDrawerPolling() {
+  if (_drawerLogInterval) clearInterval(_drawerLogInterval);
+  _drawerLogInterval = setInterval(_pollDrawerLog, 2000);
+}
+
+function _stopDrawerPolling() {
+  if (_drawerLogInterval) { clearInterval(_drawerLogInterval); _drawerLogInterval = null; }
+}
+
+async function _pollDrawerLog() {
+  if (!_drawerJobId) return;
+  try {
+    const [logRes, jobRes] = await Promise.all([
+      fetch(`${API}/jobs/${_drawerJobId}/log?from=${_drawerLogOffset}`),
+      fetch(`${API}/jobs/${_drawerJobId}`),
+    ]);
+    if (!logRes.ok) return;
+    const logData = await logRes.json();
+    const jobData = jobRes.ok ? await jobRes.json() : null;
+
+    for (const line of logData.lines) {
+      _appendDrawerLine(line);
+    }
+    _drawerLogOffset = logData.total;
+
+    if (jobData) {
+      document.getElementById('drawer-step').textContent = jobData.step || '';
+    }
+
+    if (logData.status === 'done') {
+      document.getElementById('drawer-step').textContent = 'Done ✓';
+      document.getElementById('drawer-step').style.color = 'rgba(45,107,66,0.9)';
+      const cursor = document.getElementById('drawer-cursor');
+      if (cursor) cursor.remove();
+      _stopDrawerPolling();
+    } else if (logData.status === 'failed') {
+      document.getElementById('drawer-step').textContent = 'Failed ✗';
+      document.getElementById('drawer-step').style.color = 'rgba(196,75,26,0.9)';
+      const cursor = document.getElementById('drawer-cursor');
+      if (cursor) cursor.remove();
+      _stopDrawerPolling();
+    }
+  } catch (_) {}
+}
 
 // ── Toast Notifications ──
 function toast(message, type = 'info', duration = 4000) {
@@ -904,6 +1107,7 @@ async function generateNewsletter(slug) {
     t.remove();
     toast(`Job ${data.job_id} started for ${slug}`, 'success');
     pollJob(data.job_id, slug);
+    openDrawer(data.job_id, slug);
   } catch (e) {
     t.remove();
     toast('Network error', 'error');
@@ -1028,6 +1232,7 @@ form.addEventListener('submit', async (e) => {
       } else if (data.job_id) {
         toast(`Topic "${name}" registered — Claude is generating topic.md…`, 'info', 6000);
         pollTopicMdJob(data.job_id, data.slug, name);
+        openDrawer(data.job_id, name);
       } else {
         toast(`Topic "${name}" registered — provide topic.md to make it ready`, 'success', 6000);
       }

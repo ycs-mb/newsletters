@@ -6,6 +6,7 @@ shared ThreadPoolExecutor.  Claude is invoked via subprocess.run().
 
 Topic metadata is managed through shared.topic_registry (topics.json).
 """
+import json
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -27,19 +28,92 @@ def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> No
     jobs.update(job_id, step=step, status=status)
 
 
-def _run_claude(task: str, max_turns: int = 10) -> None:
-    """Invoke claude CLI via subprocess. Raises RuntimeError on non-zero exit."""
-    result = subprocess.run(
-        ["claude", "-p", task, "--dangerously-skip-permissions",
-         "--max-turns", str(max_turns)],
+def _format_log_line(tool_name: str, tool_input: dict, context: str) -> str | None:
+    """Return a human-readable log line for a tool_use event, or None to skip."""
+    if context == "topic_md":
+        # For topic.md generation only emit the Write of topic.md itself
+        if tool_name == "Write":
+            fp = tool_input.get("file_path", "")
+            if fp.endswith("topic.md"):
+                return f"✍ Writing: {fp}"
+        return None
+
+    # newsletter context — full research trail
+    if tool_name == "WebSearch":
+        return f"🔍 Searching: {tool_input.get('query', '')}"
+    if tool_name in ("Write", "NotebookEdit"):
+        fp = tool_input.get("file_path", "")
+        return f"✍ Writing: {fp.split('/')[-1] if '/' in fp else fp}"
+    if tool_name == "Bash":
+        cmd = tool_input.get("command", "")
+        return f"⚡ Bash: {cmd[:80]}"
+    if tool_name == "Read":
+        fp = tool_input.get("file_path", "")
+        return f"📖 Reading: {fp.split('/')[-1] if '/' in fp else fp}"
+    if tool_name in ("Edit", "MultiEdit"):
+        fp = tool_input.get("file_path", "")
+        return f"✏️ Editing: {fp.split('/')[-1] if '/' in fp else fp}"
+    return f"🔧 {tool_name}"
+
+
+def _run_claude(task: str, max_turns: int = 10,
+                job_id: str | None = None,
+                context: str | None = None) -> None:
+    """Invoke claude CLI via subprocess. Raises RuntimeError on non-zero exit.
+
+    If job_id is provided, tool_use events from --output-format stream-json are
+    parsed and appended to the job log as human-readable step lines.
+    context: 'newsletter' | 'topic_md' — controls which events are logged.
+    """
+    cmd = [
+        "claude", "-p", task,
+        "--dangerously-skip-permissions",
+        "--max-turns", str(max_turns),
+    ]
+    if job_id:
+        cmd += ["--output-format", "stream-json"]
+
+    # stderr=STDOUT merges stderr into stdout so the read loop drains both,
+    # preventing pipe-buffer deadlock when stderr fills before stdout ends.
+    proc = subprocess.Popen(
+        cmd,
         cwd=REPO_ROOT,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=600,
     )
-    if result.returncode != 0:
+
+    stdout_lines: list[str] = []
+    for raw in proc.stdout:
+        raw = raw.strip()
+        if not raw:
+            continue
+        stdout_lines.append(raw)
+        if job_id:
+            try:
+                event = json.loads(raw)
+                # Batched form: event["message"]["content"][]{type=tool_use}
+                blocks = (event.get("message") or {}).get("content", [])
+                # Streaming form: content_block_start with content_block.type=tool_use
+                cb = event.get("content_block", {})
+                if event.get("type") == "content_block_start" and (cb or {}).get("type") == "tool_use":
+                    blocks = [cb]
+                for block in blocks:
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        line = _format_log_line(
+                            block.get("name", ""),
+                            block.get("input", {}),
+                            context or "newsletter",
+                        )
+                        if line:
+                            jobs.append_log(job_id, line)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
+
+    proc.wait(timeout=600)
+    if proc.returncode != 0:
         raise RuntimeError(
-            f"claude exited {result.returncode}: {(result.stderr or result.stdout)[:500]}"
+            f"claude exited {proc.returncode}: {chr(10).join(stdout_lines[-20:])[:500]}"
         )
 
 
@@ -77,6 +151,8 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
             f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
             f"Do NOT generate prompt.md. Write topic.md only.",
             max_turns=10,
+            job_id=job_id,
+            context="topic_md",
         )
         topic_md = topic_dir / "topic.md"
         if not topic_md.exists():
@@ -98,7 +174,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
 
         _update(job_id, "Running first newsletter issue…")
         prompt_text = (topic_dir / "prompt.md").read_text()
-        _run_claude(prompt_text, max_turns=25)
+        _run_claude(prompt_text, max_turns=25, job_id=job_id, context="newsletter")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
@@ -136,7 +212,7 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
             raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
 
         _update(job_id, "Running newsletter generation…")
-        _run_claude(prompt_path.read_text(), max_turns=25)
+        _run_claude(prompt_path.read_text(), max_turns=25, job_id=job_id, context="newsletter")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
@@ -261,7 +337,7 @@ def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> 
             signal_label=payload.signal_label or "Signal",
             focus_areas=payload.focus_areas.strip() or "(none provided — use best judgement)",
         )
-        _run_claude(prompt, max_turns=10)
+        _run_claude(prompt, max_turns=10, job_id=job_id, context="topic_md")
         topic_md = REPO_ROOT / "topics" / slug / "topic.md"
         if not topic_md.exists():
             raise RuntimeError(f"Claude did not produce topics/{slug}/topic.md")
