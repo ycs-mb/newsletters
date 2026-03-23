@@ -14,6 +14,7 @@ REPO_ROOT = SHARED_DIR.parent
 DIST_DIR = REPO_ROOT / "dist"
 TEMPLATES_DIR = SHARED_DIR / "templates"
 SHARED_STYLESHEET = SHARED_DIR / "assets" / "style.css"
+DARK_STYLESHEET = SHARED_DIR / "assets" / "dark.css"
 
 
 def load_config() -> dict:
@@ -99,10 +100,15 @@ def render_nav(topic_name: str, current_date: str, dates: list[str], current_idx
 
 def inject_nav(html: str, nav_html: str, slug: str = "", date: str = "") -> str:
     """Inject nav bar into existing HTML: add portal.css, body class, nav element."""
-    # Rewrite style.css path to ../style.css (one level up from dist/<slug>/)
+    # Rewrite style.css and dark.css paths to ../<file> (one level up from dist/<slug>/)
     html = re.sub(
         r'<link\s+rel="stylesheet"\s+href="style\.css"\s*/?>',
         '<link rel="stylesheet" href="../style.css">\n<link rel="stylesheet" href="../portal.css">',
+        html,
+    )
+    html = re.sub(
+        r'<link\s+rel="stylesheet"\s+href="dark\.css"\s*/?>',
+        '<link rel="stylesheet" href="../dark.css">',
         html,
     )
 
@@ -125,8 +131,10 @@ def discover_media(topic_dir: Path, date: str) -> dict[str, Path | None]:
     """Find media files for a given date in topics/<slug>/media/."""
     media_dir = topic_dir / "media"
     if not media_dir.exists():
-        return {"infographic": None, "slides": None, "podcast": None, "video": None}
+        return {"banner": None, "context": None, "infographic": None, "slides": None, "podcast": None, "video": None}
     return {
+        "banner":      next(media_dir.glob(f"{date}-banner.png"),      None),
+        "context":     next(media_dir.glob(f"{date}-context.png"),     None),
         "infographic": next(media_dir.glob(f"{date}-infographic.png"), None),
         "slides":      next(media_dir.glob(f"{date}-slides.pdf"),      None),
         "podcast":     next(media_dir.glob(f"{date}-podcast.mp3"),     None),
@@ -146,6 +154,26 @@ def copy_media(media: dict[str, Path | None], topic_dist: Path) -> dict[str, str
             _shutil.copy2(src, dst)
             urls[key] = f"media/{src.name}"
     return urls
+
+
+def render_banner_infographic(url: str) -> str:
+    """Render the full-width banner infographic block placed after the masthead."""
+    return (
+        f'<div class="banner-infographic">'
+        f'<div class="banner-infographic-label">Issue Overview &middot; NotebookLM</div>'
+        f'<img src="{url}" alt="Issue overview infographic">'
+        f'</div>'
+    )
+
+
+def render_context_infographic(url: str) -> str:
+    """Render the context infographic block embedded inside Section 05 tip-container."""
+    return (
+        f'<div class="context-infographic">'
+        f'<div class="context-infographic-label">Visual Summary &middot; NotebookLM</div>'
+        f'<img src="{url}" alt="Context briefing infographic">'
+        f'</div>'
+    )
 
 
 def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
@@ -302,6 +330,13 @@ def build():
     # Copy shared assets
     shutil.copy2(SHARED_STYLESHEET, DIST_DIR / "style.css")
     shutil.copy2(SHARED_DIR / "portal.css", DIST_DIR / "portal.css")
+    if DARK_STYLESHEET.exists():
+        shutil.copy2(DARK_STYLESHEET, DIST_DIR / "dark.css")
+
+    # Copy management page
+    manage_src = TEMPLATES_DIR / "manage.html"
+    if manage_src.exists():
+        shutil.copy2(manage_src, DIST_DIR / "manage.html")
 
     topic_metas = {}
 
@@ -344,6 +379,16 @@ def build():
             nav_html = render_nav(topic["name"], date, dates, i)
             output_html = inject_nav(page_html, nav_html, slug=slug, date=date)
             media = copy_media(discover_media(topic_dir, date), topic_dist)
+
+            # Inject banner infographic after masthead
+            banner_html = render_banner_infographic(media["banner"]) if media.get("banner") else ""
+            output_html = output_html.replace("{{BANNER_INFOGRAPHIC}}", banner_html)
+
+            # Inject context infographic inside Section 05 tip-container
+            context_html = render_context_infographic(media["context"]) if media.get("context") else ""
+            output_html = output_html.replace("{{CONTEXT_INFOGRAPHIC}}", context_html)
+
+            # Inject bottom media section (podcast / video on-demand)
             media_html = render_media_section(slug, date, media)
             output_html = output_html.replace("{{MEDIA_SECTION}}", media_html)
 
