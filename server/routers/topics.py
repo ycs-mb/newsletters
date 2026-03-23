@@ -9,6 +9,7 @@ from server import jobs
 from shared.topic_registry import (
     list_all, get as registry_get, save as registry_save,
     delete as registry_delete, get_status, is_ready, exists as registry_exists,
+    count_issues,
 )
 
 router    = APIRouter()
@@ -63,8 +64,10 @@ async def list_topics() -> dict:
             "signal_label": t.get("signal_label", "Signal"),
             "ready":        status["ready"],
             "has_topic_md": status["has_topic_md"],
+            "issue_count":  status["issue_count"],
         }
-    return {"topics": topics, "count": len(config)}
+    total_issues = sum(t["issue_count"] for t in topics.values())
+    return {"topics": topics, "count": len(config), "total_issues": total_issues}
 
 
 @router.get("/{slug}")

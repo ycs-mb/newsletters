@@ -72,12 +72,18 @@ def is_ready(slug: str) -> bool:
     return exists(slug) and topic_md_exists(slug)
 
 
+def count_issues(slug: str) -> int:
+    """Return the number of dated YYYY-MM-DD.md files for a topic."""
+    return len(list(_topic_dir(slug).glob("????-??-??.md")))
+
+
 def get_status(slug: str) -> dict:
     """Return readiness details for a topic."""
     registered = exists(slug)
     has_topic_md = topic_md_exists(slug) if registered else False
     has_prompt_md = (_topic_dir(slug) / "prompt.md").exists() if registered else False
     has_site = (_topic_dir(slug) / "site" / "index.html").exists() if registered else False
+    issue_count = count_issues(slug) if registered else 0
     return {
         "slug": slug,
         "registered": registered,
@@ -85,6 +91,7 @@ def get_status(slug: str) -> dict:
         "has_prompt_md": has_prompt_md,
         "has_site": has_site,
         "ready": registered and has_topic_md,
+        "issue_count": issue_count,
     }
 
 # ---------------------------------------------------------------------------

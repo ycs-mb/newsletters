@@ -796,6 +796,7 @@ async function fetchTopics() {
     const res = await fetch(`${API}/topics`);
     const data = await res.json();
     topics = data.topics || {};
+    window._totalIssues = data.total_issues || 0;
     renderTopics();
     renderStats();
   } catch (e) {
@@ -816,8 +817,7 @@ function renderStats() {
   document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-ready').textContent = ready;
   document.getElementById('stat-pending').textContent = pending;
-  // Issues count is cosmetic — we'd need a separate endpoint, so show "—" for now
-  document.getElementById('stat-issues').textContent = '—';
+  document.getElementById('stat-issues').textContent = window._totalIssues ?? '—';
 }
 
 // ── Render Topic Table ──
