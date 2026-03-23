@@ -695,7 +695,16 @@
       <div class="form-group full-width">
         <label class="form-label" for="topic-focus">Focus Areas</label>
         <textarea class="form-textarea" id="topic-focus" placeholder="Key areas to cover, specific sources, angles of interest…"></textarea>
-        <div class="form-hint">Guides the AI when generating topic.md — be specific about what matters.</div>
+        <div class="form-hint">If provided without topic.md below, the AI will use this to generate topic.md (requires Claude CLI).</div>
+      </div>
+
+      <div class="form-group full-width">
+        <label class="form-label" for="topic-md-input">
+          Topic.md Content
+          <span style="color:var(--sage);font-size:8px;letter-spacing:1px;margin-left:8px;">RECOMMENDED</span>
+        </label>
+        <textarea class="form-textarea" id="topic-md-input" placeholder="Paste your topic.md content here to make the topic immediately ready for newsletter generation…" style="min-height:140px;font-family:var(--font-mono);font-size:12px;line-height:1.7;"></textarea>
+        <div class="form-hint">Providing this directly registers the topic as ready — no Claude CLI needed.</div>
       </div>
 
       <div class="form-group">
@@ -967,12 +976,14 @@ form.addEventListener('submit', async (e) => {
   const name = document.getElementById('topic-name').value.trim();
   if (!name) return;
 
+  const topicMdContent = document.getElementById('topic-md-input').value.trim();
   const payload = {
     name,
     description: document.getElementById('topic-description').value.trim(),
     focus_areas: document.getElementById('topic-focus').value.trim(),
     accent: accentSelect.value,
     signal_label: document.getElementById('topic-signal').value.trim() || 'Signal',
+    topic_md: topicMdContent,
   };
 
   const btn = document.getElementById('create-btn');
@@ -987,8 +998,14 @@ form.addEventListener('submit', async (e) => {
     });
     const data = await res.json();
     if (res.ok) {
-      toast(`Topic "${name}" commissioned — job ${data.job_id}`, 'success');
-      pollJob(data.job_id, data.slug);
+      if (data.ready) {
+        toast(`Topic "${name}" created and ready ✓`, 'success');
+      } else if (data.job_id) {
+        toast(`Topic "${name}" registered — generating topic.md (job ${data.job_id})`, 'info', 6000);
+        pollJob(data.job_id, data.slug);
+      } else {
+        toast(`Topic "${name}" registered — provide topic.md to make it ready`, 'success', 6000);
+      }
       form.reset();
       updateAccentPreview();
       fetchTopics();

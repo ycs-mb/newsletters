@@ -187,6 +187,34 @@ def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> Non
     _executor.submit(_create_topic_job, job_id, slug, payload)
 
 
+def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
+    """Generate topic.md for an already-registered topic. Best-effort."""
+    try:
+        _update(job_id, "Generating topic.md via Claude…")
+        _run_claude(
+            f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
+            f"Topic name: {payload.name}\n"
+            f"Description: {payload.description}\n"
+            f"Focus areas: {payload.focus_areas}\n"
+            f"Output path: topics/{slug}/topic.md\n"
+            f"Format: Identity section (role, audience, signal label) + Sources + Sections only.\n"
+            f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
+            f"Do NOT generate prompt.md. Write topic.md only.",
+            max_turns=10,
+        )
+        topic_md = REPO_ROOT / "topics" / slug / "topic.md"
+        if not topic_md.exists():
+            raise RuntimeError(f"Claude did not produce topics/{slug}/topic.md")
+        jobs.update(job_id, step="Done ✓", status=JobStatus.done)
+    except Exception as e:
+        jobs.update(job_id, status=JobStatus.failed, error=str(e))
+
+
+def submit_topic_md_generation(job_id: str, slug: str, payload: "TopicCreate") -> None:
+    """Submit topic.md generation to the thread pool."""
+    _executor.submit(_topic_md_generation_job, job_id, slug, payload)
+
+
 def submit_newsletter_generation(job_id: str, slug: str) -> None:
     """Submit newsletter generation for an existing topic with topic.md."""
     _executor.submit(_newsletter_generation_job, job_id, slug)
