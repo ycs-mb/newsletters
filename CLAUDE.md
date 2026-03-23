@@ -22,31 +22,48 @@ cd dist && python3 -m http.server 8787
 claude --task "$(cat topics/google-ai/prompt.md)" \
   --channels plugin:telegram@claude-plugins-official \
   --dangerously-skip-permissions --max-turns 25
+
+# Run tests
+uv run pytest
 ```
 
 ## Architecture
 
 ### Generation Flow
 
-`topics/<slug>/prompt.md` → Claude Code (web search + compile) → `topics/<slug>/site/index.html` + `topics/<slug>/site/YYYY-MM-DD.html` → `shared/build.py` → `dist/`
+`topics/<slug>/topic.md` → `shared/assemble_prompt.py` → `topics/<slug>/prompt.md` → Claude Code (web search + compile) → `topics/<slug>/site/index.html` + `topics/<slug>/site/YYYY-MM-DD.html` → `shared/build.py` → `dist/`
 
-Each topic has a `prompt.md` that instructs Claude Code to search the web, compile content, and generate HTML by filling `{{PLACEHOLDER}}` markers in the topic's `site/template.html`. The build script then assembles everything into `dist/` with navigation.
+Each topic has a `topic.md` (research identity) that gets assembled with shared design/ops guides into `prompt.md`. Claude Code then executes that prompt to generate HTML by filling `{{PLACEHOLDER}}` markers in the topic's `site/template.html`. The build script assembles everything into `dist/` with navigation.
+
+**Newsletter generation is gated on `topic.md` existence.** A topic must be registered in `topics.json` AND have `topic.md` on disk before newsletters can be generated.
+
+### Topic Registry
+
+Topics are managed through `shared/topic_registry.py`, backed by `topics.json` at the repo root. The registry provides thread-safe CRUD (list_all, get, save, delete) and readiness checks (is_ready, topic_md_exists, get_status).
+
+All consumers (build.py, server routers, run.sh) read through this module — it is the single source of truth for topic metadata.
 
 ### Topic Structure
 
-Topics are defined in `topics.toml`. Each entry maps a slug to an explicit folder under `topics/`, for example:
+Each topic folder under `topics/<slug>/` contains: `topic.md` (required for generation), generated `prompt.md`, `site/template.html`, `site/index.html` (latest generated), `site/YYYY-MM-DD.html` (dated archives), and `YYYY-MM-DD.md` (raw markdown).
 
-- `folder = "topics/claude-digest"`
-- `folder = "topics/google-ai"`
-- `folder = "topics/us-iran-war"`
+### API Endpoints
 
-Each topic folder contains: `prompt.md`, `site/template.html`, `site/index.html` (latest generated), `site/YYYY-MM-DD.html` (dated archives), and `YYYY-MM-DD.md` (raw markdown).
+- `GET /api/topics` — list all topics with readiness status
+- `GET /api/topics/{slug}` — get single topic with full status
+- `POST /api/topics` — create new topic (scaffolds folder, generates topic.md via Claude)
+- `DELETE /api/topics/{slug}` — remove topic from registry
+- `POST /api/topics/{slug}/newsletter` — request newsletter generation (requires topic.md)
+- `POST /api/generate/{slug}/{date}/{type}` — on-demand media generation
+- `GET /api/jobs/{job_id}` — check background job status
 
 ### Shared Infrastructure (`shared/`)
 
 Shared infrastructure lives in `shared/`:
 
+- `shared/topic_registry.py` — JSON-backed topic CRUD (single source of truth)
 - `shared/build.py` — static site generator
+- `shared/assemble_prompt.py` — composes topic.md + design-guide + ops-guide → prompt.md
 - `shared/portal.css` — portal navigation and landing page styles
 - `shared/templates/` — nav and landing page templates
 - `shared/assets/style.css` — locked editorial design system copied into `dist/style.css`

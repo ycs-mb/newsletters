@@ -17,6 +17,11 @@ SHARED_STYLESHEET = SHARED_DIR / "assets" / "style.css"
 
 
 def load_config() -> dict:
+    """Load topic registry.  Prefers topics.json; falls back to topics.toml."""
+    json_path = REPO_ROOT / "topics.json"
+    if json_path.exists():
+        import json
+        return json.loads(json_path.read_text())
     with open(REPO_ROOT / "topics.toml", "rb") as f:
         return tomllib.load(f)
 

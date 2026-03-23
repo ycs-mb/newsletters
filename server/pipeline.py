@@ -1,13 +1,13 @@
 # server/pipeline.py
 """Background job orchestration.
 
-All long-running operations (topic creation) run in a shared ThreadPoolExecutor.
-Claude is invoked via subprocess.run() — no Python SDK needed.
-topics.toml writes are protected by a threading.Lock().
+All long-running operations (topic creation, newsletter generation) run in a
+shared ThreadPoolExecutor.  Claude is invoked via subprocess.run().
+
+Topic metadata is managed through shared.topic_registry (topics.json).
 """
 import shutil
 import subprocess
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -19,9 +19,8 @@ from server.jobs import JobStatus
 if TYPE_CHECKING:
     from server.routers.topics import TopicCreate
 
-REPO_ROOT  = Path(__file__).parent.parent
-_executor  = ThreadPoolExecutor(max_workers=4)
-_toml_lock = threading.Lock()
+REPO_ROOT = Path(__file__).parent.parent
+_executor = ThreadPoolExecutor(max_workers=4)
 
 
 def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> None:
@@ -44,27 +43,17 @@ def _run_claude(task: str, max_turns: int = 10) -> None:
         )
 
 
-def _append_topic_toml(slug: str, name: str, description: str,
-                        accent: str, signal_label: str) -> None:
-    """Append a new topic entry to topics.toml. Thread-safe via _toml_lock."""
-    entry = (
-        f'\n[{slug}]\n'
-        f'name = "{name}"\n'
-        f'description = "{description}"\n'
-        f'accent = "{accent}"\n'
-        f'signal_label = "{signal_label}"\n'
-        f'folder = "topics/{slug}"\n'
-        f'eyebrow = "Daily Intelligence Brief"\n'
-    )
-    with _toml_lock:
-        with open(REPO_ROOT / "topics.toml", "a") as f:
-            f.write(entry)
+def _build_portal() -> None:
+    """Run the static site builder."""
+    subprocess.run(["uv", "run", "shared/build.py"], cwd=REPO_ROOT, check=True)
 
 
 def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
     """Full new-topic creation pipeline. Runs in thread pool."""
+    from shared.topic_registry import save as registry_save
+
     try:
-        _update(job_id, "Scaffolding topic folder\u2026")
+        _update(job_id, "Scaffolding topic folder…")
         topic_dir = REPO_ROOT / "topics" / slug
         (topic_dir / "site").mkdir(parents=True, exist_ok=True)
         (topic_dir / "media").mkdir(exist_ok=True)
@@ -77,7 +66,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         if css_src.exists():
             shutil.copy2(css_src, topic_dir / "site" / "style.css")
 
-        _update(job_id, "Generating research prompt\u2026")
+        _update(job_id, "Generating research prompt…")
         _run_claude(
             f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
             f"Topic name: {payload.name}\n"
@@ -95,37 +84,73 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
                 f"newsletter-create did not produce topics/{slug}/topic.md"
             )
 
-        _append_topic_toml(
-            slug, payload.name, payload.description,
-            payload.accent, payload.signal_label,
-        )
+        # Register in topics.json (replaces _append_topic_toml)
+        registry_save(slug, {
+            "name": payload.name,
+            "description": payload.description,
+            "accent": payload.accent,
+            "signal_label": payload.signal_label,
+        })
 
-        _update(job_id, "Assembling prompt\u2026")
+        _update(job_id, "Assembling prompt…")
         from shared.assemble_prompt import assemble
         assemble(slug)
 
-        _update(job_id, "Running first newsletter issue\u2026")
+        _update(job_id, "Running first newsletter issue…")
         prompt_text = (topic_dir / "prompt.md").read_text()
         _run_claude(prompt_text, max_turns=25)
 
-        _update(job_id, "Generating NotebookLM media\u2026")
+        _update(job_id, "Generating NotebookLM media…")
         try:
             from shared.notebooklm_runner import generate_issue_media
             today = datetime.now().strftime("%Y-%m-%d")
             generate_issue_media(slug, today)
         except Exception as nlm_err:
-            # Non-fatal: media generation failure does not abort topic creation
             import logging
             logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
 
-        _update(job_id, "Building portal\u2026")
-        subprocess.run(
-            ["uv", "run", "shared/build.py"],
-            cwd=REPO_ROOT,
-            check=True,
-        )
+        _update(job_id, "Building portal…")
+        _build_portal()
 
-        jobs.update(job_id, step="Done \u2713", status=JobStatus.done)
+        jobs.update(job_id, step="Done ✓", status=JobStatus.done)
+
+    except Exception as e:
+        jobs.update(job_id, status=JobStatus.failed, error=str(e))
+
+
+def _newsletter_generation_job(job_id: str, slug: str) -> None:
+    """Generate a newsletter for an existing topic that has topic.md.
+
+    This is the decoupled generation path: the topic must already be
+    registered and have topic.md on disk.
+    """
+    try:
+        topic_dir = REPO_ROOT / "topics" / slug
+
+        _update(job_id, "Assembling prompt…")
+        from shared.assemble_prompt import assemble
+        assemble(slug)
+
+        prompt_path = topic_dir / "prompt.md"
+        if not prompt_path.exists():
+            raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
+
+        _update(job_id, "Running newsletter generation…")
+        _run_claude(prompt_path.read_text(), max_turns=25)
+
+        _update(job_id, "Generating NotebookLM media…")
+        try:
+            from shared.notebooklm_runner import generate_issue_media
+            today = datetime.now().strftime("%Y-%m-%d")
+            generate_issue_media(slug, today)
+        except Exception as nlm_err:
+            import logging
+            logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
+
+        _update(job_id, "Building portal…")
+        _build_portal()
+
+        jobs.update(job_id, step="Done ✓", status=JobStatus.done)
 
     except Exception as e:
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
@@ -160,3 +185,8 @@ def submit_media_generation(job_id: str, slug: str, date: str, artifact_type: st
 def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> None:
     """Submit topic creation to the thread pool. Called by FastAPI background task."""
     _executor.submit(_create_topic_job, job_id, slug, payload)
+
+
+def submit_newsletter_generation(job_id: str, slug: str) -> None:
+    """Submit newsletter generation for an existing topic with topic.md."""
+    _executor.submit(_newsletter_generation_job, job_id, slug)
