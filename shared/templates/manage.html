@@ -695,7 +695,7 @@
       <div class="form-group full-width">
         <label class="form-label" for="topic-focus">Focus Areas</label>
         <textarea class="form-textarea" id="topic-focus" placeholder="Key areas to cover, specific sources, angles of interest…"></textarea>
-        <div class="form-hint">If provided without topic.md below, the AI will use this to generate topic.md (requires Claude CLI).</div>
+        <div class="form-hint">Description and focus areas are used to auto-generate topic.md when no content is pasted below.</div>
       </div>
 
       <div class="form-group full-width">
@@ -1000,9 +1000,6 @@ form.addEventListener('submit', async (e) => {
     if (res.ok) {
       if (data.ready) {
         toast(`Topic "${name}" created and ready ✓`, 'success');
-      } else if (data.job_id) {
-        toast(`Topic "${name}" registered — generating topic.md (job ${data.job_id})`, 'info', 6000);
-        pollJob(data.job_id, data.slug);
       } else {
         toast(`Topic "${name}" registered — provide topic.md to make it ready`, 'success', 6000);
       }
