@@ -49,7 +49,7 @@ class BuildLayoutTest(unittest.TestCase):
         """Verify the archive page lists all topics with dates and links."""
         archive_path = REPO_ROOT / "dist" / "archives" / "index.html"
         if not archive_path.exists():
-            self.skipTest("archive not yet built — run build first")
+            self.skipTest("archive not yet built — run `uv run shared/build.py` first")
 
         html = archive_path.read_text()
 
@@ -65,7 +65,7 @@ class BuildLayoutTest(unittest.TestCase):
         """Verify landing page links to the archive."""
         landing_path = REPO_ROOT / "dist" / "index.html"
         if not landing_path.exists():
-            self.skipTest("landing page not yet built — run build first")
+            self.skipTest("landing page not yet built — run `uv run shared/build.py` first")
 
         html = landing_path.read_text()
         self.assertIn('href="archives/index.html"', html, "landing page should link to archive")

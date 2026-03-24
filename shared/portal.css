@@ -178,40 +178,32 @@ body.has-portal-nav {
 }
 
 .portal-link,
-.portal-link-note {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.portal-link {
-  color: var(--ink-faint);
-  text-decoration: none;
-  transition: color 0.2s ease;
-  white-space: nowrap;
-}
-
-.portal-link:hover {
-  color: var(--terracotta);
-}
-
-.portal-link-note {
-  color: var(--ink-faint);
-}
-
+.portal-link-note,
 .portal-back-link {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+.portal-link,
+.portal-back-link {
   color: var(--ink-faint);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
+.portal-link {
+  white-space: nowrap;
+}
+
+.portal-link:hover,
 .portal-back-link:hover {
   color: var(--terracotta);
+}
+
+.portal-link-note {
+  color: var(--ink-faint);
 }
 
 /* ═══════════════════════════ ARCHIVE LIST ═══════════════════════════ */
@@ -286,6 +278,8 @@ body.has-portal-nav {
   letter-spacing: -0.3px;
 }
 
+/* Known accent variants — add new ones here when topics use new accent colors */
+.archive-item .archive-item-label { color: var(--ink-faint); }
 .archive-item.accent-terracotta .archive-item-label { color: var(--terracotta); }
 .archive-item.accent-sage .archive-item-label { color: var(--sage); }
 .archive-item.accent-prussian .archive-item-label { color: var(--prussian); }

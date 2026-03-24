@@ -302,8 +302,9 @@ def build_archive(archive_entries: list[dict]) -> str:
     else:
         items_html = '      <div class="archive-empty">No archived issues yet.</div>\n'
 
-    today = datetime.now().strftime("%A, %B %d, %Y")
-    colophon = f"{len(archive_entries)} archived issues &middot; {datetime.now().strftime('%B %d, %Y')}"
+    now = datetime.now()
+    today = now.strftime("%A, %B %d, %Y")
+    colophon = f"{len(archive_entries)} archived issues &middot; {now.strftime('%B %d, %Y')}"
 
     return (
         template
