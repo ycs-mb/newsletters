@@ -8,9 +8,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class BuildLayoutTest(unittest.TestCase):
-    def test_normalized_layout_builds_expected_dist_outputs(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
         builder = REPO_ROOT / "shared" / "build.py"
-        self.assertTrue(builder.exists(), f"missing builder at {builder}")
+        if not builder.exists():
+            raise FileNotFoundError(f"missing builder at {builder}")
 
         result = subprocess.run(
             [sys.executable, str(builder)],
@@ -20,8 +22,9 @@ class BuildLayoutTest(unittest.TestCase):
         )
 
         if result.returncode != 0:
-            self.fail(result.stderr or result.stdout or "build failed")
+            raise RuntimeError(result.stderr or result.stdout or "build failed")
 
+    def test_normalized_layout_builds_expected_dist_outputs(self) -> None:
         expected_files = [
             REPO_ROOT / "shared" / "portal.css",
             REPO_ROOT / "shared" / "assets" / "style.css",
@@ -48,8 +51,7 @@ class BuildLayoutTest(unittest.TestCase):
     def test_archive_page_content(self) -> None:
         """Verify the archive page lists all topics with dates and links."""
         archive_path = REPO_ROOT / "dist" / "archives" / "index.html"
-        if not archive_path.exists():
-            self.skipTest("archive not yet built — run `uv run shared/build.py` first")
+        self.assertTrue(archive_path.exists(), "archive page not found in dist/archives/index.html")
 
         html = archive_path.read_text()
 
@@ -64,8 +66,7 @@ class BuildLayoutTest(unittest.TestCase):
     def test_landing_page_archive_link(self) -> None:
         """Verify landing page links to the archive."""
         landing_path = REPO_ROOT / "dist" / "index.html"
-        if not landing_path.exists():
-            self.skipTest("landing page not yet built — run `uv run shared/build.py` first")
+        self.assertTrue(landing_path.exists(), "landing page not found in dist/index.html")
 
         html = landing_path.read_text()
         self.assertIn('href="archives/index.html"', html, "landing page should link to archive")
