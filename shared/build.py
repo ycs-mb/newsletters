@@ -361,10 +361,6 @@ def build():
 
         latest_html = get_latest_html(topic_dir)
 
-        # Create topic output directory
-        topic_dist = DIST_DIR / slug
-        topic_dist.mkdir(parents=True, exist_ok=True)
-
         # Resolve emitted dates: only dates with actual HTML
         emitted_dates: list[str] = []
         for idx, date in enumerate(candidate_dates):
@@ -372,6 +368,15 @@ def build():
                 emitted_dates.append(date)
             elif idx == 0 and latest_html:
                 emitted_dates.append(date)
+
+        # Skip early if there is nothing to emit, avoiding an empty dist/<slug>/ dir
+        if not emitted_dates and not latest_html:
+            print(f"  Skipping {slug}: no site HTML found")
+            continue
+
+        # Create topic output directory (deferred until we know we'll write to it)
+        topic_dist = DIST_DIR / slug
+        topic_dist.mkdir(parents=True, exist_ok=True)
 
         # Process emitted dates
         latest_output_html = None
@@ -423,10 +428,6 @@ def build():
             meta["dates"] = []
             meta["latest_date"] = ""
             topic_metas[slug] = meta
-        else:
-            print(f"  Skipping {slug}: no site HTML found")
-            continue
-
         print(f"  {slug}: {len(emitted_dates)} date(s)")
 
     # Sort archive: newest first, then by topic name for stable ordering
