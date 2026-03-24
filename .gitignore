@@ -3,3 +3,6 @@ topics/*/prompt.md
 
 # Server logs
 /tmp/newsletter-*.log
+
+# Git worktrees
+.worktrees/

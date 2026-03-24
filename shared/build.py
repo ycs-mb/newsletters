@@ -7,6 +7,7 @@ import re
 import shutil
 import tomllib
 from datetime import datetime
+from html import escape
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).parent
@@ -62,6 +63,15 @@ def format_date_short(date_str: str) -> str:
     try:
         d = datetime.strptime(date_str, "%Y-%m-%d")
         return d.strftime("%b %d")
+    except ValueError:
+        return date_str
+
+
+def format_date_archive(date_str: str) -> str:
+    """Convert YYYY-MM-DD to 'Mar 22, 2026' format for the archive page."""
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+        return d.strftime("%b %d, %Y")
     except ValueError:
         return date_str
 
@@ -266,7 +276,46 @@ def render_topic_card(slug: str, topic: dict, meta: dict) -> str:
 '''
 
 
-def build_landing(config: dict, topic_metas: dict) -> str:
+def render_archive_item(entry: dict) -> str:
+    """Render a single archive list row."""
+    accent = escape(entry.get("accent", "terracotta"))
+    topic_name = escape(entry["topic_name"])
+    description = escape(entry["topic_description"])
+    date_display = escape(entry["date_display"])
+    href = escape(entry["href"])
+
+    return f'''      <a href="{href}" class="archive-item accent-{accent}">
+        <div class="archive-item-main">
+          <span class="archive-item-label">{topic_name}</span>
+          <span class="archive-item-topic">{description}</span>
+        </div>
+        <span class="archive-item-date">{date_display}</span>
+      </a>
+'''
+
+
+def build_archive(archive_entries: list[dict]) -> str:
+    """Build the combined cross-topic archive page."""
+    template = (TEMPLATES_DIR / "archive.html").read_text()
+    if archive_entries:
+        items_html = "".join(render_archive_item(e) for e in archive_entries)
+    else:
+        items_html = '      <div class="archive-empty">No archived issues yet.</div>\n'
+
+    now = datetime.now()
+    today = now.strftime("%A, %B %d, %Y")
+    colophon = f"{len(archive_entries)} archived issues &middot; {now.strftime('%B %d, %Y')}"
+
+    return (
+        template
+        .replace("{{DATE_LONG}}", today)
+        .replace("{{ARCHIVE_COUNT}}", str(len(archive_entries)))
+        .replace("{{ARCHIVE_ITEMS}}", items_html)
+        .replace("{{FOOTER_COLOPHON}}", colophon)
+    )
+
+
+def build_landing(config: dict, topic_metas: dict, archive_count: int = 0) -> str:
     template = (TEMPLATES_DIR / "landing.html").read_text()
 
     cards_html = ""
@@ -281,6 +330,7 @@ def build_landing(config: dict, topic_metas: dict) -> str:
         template
         .replace("{{DATE_LONG}}", today)
         .replace("{{TOPIC_COUNT}}", str(len(config)))
+        .replace("{{ARCHIVE_COUNT}}", str(archive_count))
         .replace("{{TOPIC_CARDS}}", cards_html)
         .replace("{{FOOTER_COLOPHON}}", colophon)
     )
@@ -299,63 +349,102 @@ def build():
     shutil.copy2(SHARED_DIR / "portal.css", DIST_DIR / "portal.css")
 
     topic_metas = {}
+    archive_entries: list[dict] = []
 
     for slug, topic in config.items():
         topic_dir = REPO_ROOT / topic["folder"]
 
-        # Discover dates from .md files
-        dates = discover_dates(topic_dir)
-
-        # Discover archived HTML files
+        # Candidate dates = union of markdown dates and archived HTML dates
+        md_dates = set(discover_dates(topic_dir))
         html_archives = discover_html_archives(topic_dir)
+        candidate_dates = sorted(md_dates | set(html_archives.keys()), reverse=True)
 
-        # Get latest generated HTML
         latest_html = get_latest_html(topic_dir)
-        if not latest_html:
-            print(f"  Skipping {slug}: no site/index.html found")
+
+        # Resolve emitted dates: only dates with actual HTML
+        emitted_dates: list[str] = []
+        for idx, date in enumerate(candidate_dates):
+            if date in html_archives:
+                emitted_dates.append(date)
+            elif idx == 0 and latest_html:
+                emitted_dates.append(date)
+
+        # Skip early if there is nothing to emit, avoiding an empty dist/<slug>/ dir
+        if not emitted_dates and not latest_html:
+            print(f"  Skipping {slug}: no site HTML found")
             continue
 
-        meta = extract_metadata(latest_html)
-        meta["dates"] = dates
-        meta["latest_date"] = dates[0] if dates else ""
-        topic_metas[slug] = meta
-
-        # Create topic output directory
+        # Create topic output directory (deferred until we know we'll write to it)
         topic_dist = DIST_DIR / slug
         topic_dist.mkdir(parents=True, exist_ok=True)
 
-        # Process each available date
-        for i, date in enumerate(dates):
+        # Process emitted dates
+        latest_output_html = None
+        for i, date in enumerate(emitted_dates):
             if date in html_archives:
-                # Use the archived HTML for this date
                 page_html = html_archives[date].read_text()
             elif i == 0 and latest_html:
-                # Latest date — use site/index.html
                 page_html = latest_html
             else:
-                # No HTML available for this date, skip
                 continue
 
-            nav_html = render_nav(topic["name"], date, dates, i)
+            nav_html = render_nav(topic["name"], date, emitted_dates, i)
             output_html = inject_nav(page_html, nav_html, slug=slug, date=date)
             media = copy_media(discover_media(topic_dir, date), topic_dist)
             media_html = render_media_section(slug, date, media)
             output_html = output_html.replace("{{MEDIA_SECTION}}", media_html)
 
-            # Write dated page
             (topic_dist / f"{date}.html").write_text(output_html)
 
-            # Latest date also becomes index.html
             if i == 0:
-                (topic_dist / "index.html").write_text(output_html)
+                latest_output_html = output_html
 
-        print(f"  {slug}: {len(dates)} date(s)")
+            # One archive entry per canonical dated issue
+            archive_entries.append({
+                "slug": slug,
+                "topic_name": topic["name"],
+                "topic_description": topic["description"],
+                "accent": topic.get("accent", "terracotta"),
+                "date": date,
+                "date_display": format_date_archive(date),
+                "href": f"../{slug}/{date}.html",
+            })
+
+        # Write topic index and collect metadata
+        if latest_output_html:
+            (topic_dist / "index.html").write_text(latest_output_html)
+            source_html = (html_archives[emitted_dates[0]].read_text()
+                           if emitted_dates[0] in html_archives else latest_html)
+            meta = extract_metadata(source_html or "")
+            meta["dates"] = emitted_dates
+            meta["latest_date"] = emitted_dates[0]
+            topic_metas[slug] = meta
+        elif latest_html:
+            nav_html = render_nav(topic["name"], "", [], 0)
+            output_html = inject_nav(latest_html, nav_html, slug=slug)
+            output_html = output_html.replace("{{MEDIA_SECTION}}", "")
+            (topic_dist / "index.html").write_text(output_html)
+            meta = extract_metadata(latest_html)
+            meta["dates"] = []
+            meta["latest_date"] = ""
+            topic_metas[slug] = meta
+        print(f"  {slug}: {len(emitted_dates)} date(s)")
+
+    # Sort archive: newest first, then by topic name for stable ordering
+    archive_entries.sort(key=lambda e: e["topic_name"])
+    archive_entries.sort(key=lambda e: e["date"], reverse=True)
+
+    # Build archive page
+    archive_dist = DIST_DIR / "archives"
+    archive_dist.mkdir(parents=True, exist_ok=True)
+    archive_html = build_archive(archive_entries)
+    (archive_dist / "index.html").write_text(archive_html)
 
     # Build landing page
-    landing_html = build_landing(config, topic_metas)
+    landing_html = build_landing(config, topic_metas, len(archive_entries))
     (DIST_DIR / "index.html").write_text(landing_html)
 
-    print(f"\nBuilt portal: {len(topic_metas)} topics → dist/")
+    print(f"\nBuilt portal: {len(topic_metas)} topics, {len(archive_entries)} archive entries → dist/")
 
 
 if __name__ == "__main__":
