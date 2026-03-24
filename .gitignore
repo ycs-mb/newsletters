@@ -1,3 +1,7 @@
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
 # Assembled prompt artifacts — never commit
 topics/*/prompt.md
 
@@ -6,3 +10,7 @@ topics/*/prompt.md
 
 # Git worktrees
 .worktrees/
+.grepai/
+.venv/
+**/__pycache__
+**/media/
