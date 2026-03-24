@@ -25,6 +25,7 @@ class BuildLayoutTest(unittest.TestCase):
         expected_files = [
             REPO_ROOT / "shared" / "portal.css",
             REPO_ROOT / "shared" / "assets" / "style.css",
+            REPO_ROOT / "shared" / "templates" / "archive.html",
             REPO_ROOT / "shared" / "templates" / "nav.html",
             REPO_ROOT / "shared" / "templates" / "landing.html",
             REPO_ROOT / "topics" / "claude-digest" / "topic.md",
@@ -33,6 +34,7 @@ class BuildLayoutTest(unittest.TestCase):
             REPO_ROOT / "shared" / "prompts" / "design-guide.md",
             REPO_ROOT / "shared" / "prompts" / "ops-guide.md",
             REPO_ROOT / "dist" / "index.html",
+            REPO_ROOT / "dist" / "archives" / "index.html",
             REPO_ROOT / "dist" / "claude-digest" / "index.html",
             REPO_ROOT / "dist" / "google-ai" / "index.html",
             REPO_ROOT / "dist" / "us-iran-war" / "index.html",
@@ -42,6 +44,31 @@ class BuildLayoutTest(unittest.TestCase):
 
         missing = [str(path.relative_to(REPO_ROOT)) for path in expected_files if not path.exists()]
         self.assertEqual([], missing, f"missing expected files: {missing}")
+
+    def test_archive_page_content(self) -> None:
+        """Verify the archive page lists all topics with dates and links."""
+        archive_path = REPO_ROOT / "dist" / "archives" / "index.html"
+        if not archive_path.exists():
+            self.skipTest("archive not yet built — run build first")
+
+        html = archive_path.read_text()
+
+        # Should contain links to dated topic pages
+        self.assertIn("claude-digest/", html, "archive missing claude-digest links")
+        self.assertIn("google-ai/", html, "archive missing google-ai links")
+        self.assertIn("us-iran-war/", html, "archive missing us-iran-war links")
+
+        # Should contain year in date display
+        self.assertRegex(html, r"\b20\d{2}\b", "archive dates should include year")
+
+    def test_landing_page_archive_link(self) -> None:
+        """Verify landing page links to the archive."""
+        landing_path = REPO_ROOT / "dist" / "index.html"
+        if not landing_path.exists():
+            self.skipTest("landing page not yet built — run build first")
+
+        html = landing_path.read_text()
+        self.assertIn('href="archives/index.html"', html, "landing page should link to archive")
 
 
 if __name__ == "__main__":
