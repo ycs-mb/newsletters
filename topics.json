@@ -1,0 +1,26 @@
+{
+  "claude-digest": {
+    "description": "Daily intelligence brief on Anthropic, Claude Code, and the Claude ecosystem",
+    "accent": "terracotta",
+    "signal_label": "Signal",
+    "eyebrow": "Daily Intelligence Brief",
+    "name": "Claude Digest",
+    "folder": "topics/claude-digest"
+  },
+  "us-iran-war": {
+    "description": "Geopolitical intelligence briefing on the US-Iran war and regional fallout",
+    "accent": "sage",
+    "signal_label": "Escalation",
+    "eyebrow": "Daily Intelligence Brief",
+    "name": "US–Iran Conflict",
+    "folder": "topics/us-iran-war"
+  },
+  "google-ai": {
+    "description": "Model releases, API updates, and strategic developments from Google's AI division",
+    "accent": "prussian",
+    "signal_label": "Signal",
+    "eyebrow": "Daily Intelligence Brief",
+    "name": "Google AI",
+    "folder": "topics/google-ai"
+  }
+}
