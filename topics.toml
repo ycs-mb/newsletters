@@ -24,3 +24,11 @@ accent = "prussian"
 signal_label = "Signal"
 folder = "topics/google-ai"
 eyebrow = "Daily Intelligence Brief"
+
+[quantum-n]
+name = "Quantum Computing"
+description = "Daily intelligence brief on quantum computing breakthroughs, hardware milestones, and industry developments"
+accent = "gold"
+signal_label = "Signal"
+folder = "topics/quantum-n"
+eyebrow = "Daily Intelligence Brief"

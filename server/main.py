@@ -4,6 +4,7 @@
 Serves dist/ as static files and exposes /api/* routes.
 API routes MUST be registered before the StaticFiles mount.
 """
+import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -31,4 +32,5 @@ if DIST_DIR.exists():
     app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("server.main:app", host="0.0.0.0", port=8787, reload=False)
+    port = int(os.environ.get("PORT", 9000))
+    uvicorn.run("server.main:app", host="0.0.0.0", port=port, reload=False)
