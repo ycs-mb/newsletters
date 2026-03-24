@@ -22,5 +22,13 @@
     "eyebrow": "Daily Intelligence Brief",
     "name": "Google AI",
     "folder": "topics/google-ai"
+  },
+  "indian-parliament-news": {
+    "description": "",
+    "accent": "terracotta",
+    "signal_label": "Signal",
+    "eyebrow": "Daily Intelligence Brief",
+    "name": "Indian Parliament news",
+    "folder": "topics/indian-parliament-news"
   }
 }
