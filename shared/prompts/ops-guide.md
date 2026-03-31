@@ -1,50 +1,52 @@
 # Operations Guide — Newsletter Generation
 
-## OUTPUT SPECIFICATION
+## CRITICAL: JSON-ONLY OUTPUT
 
-You must return **valid JSON only** (no markdown fences, no explanation text).
+You MUST output a single valid JSON object with no markdown formatting, no code fences, and no explanation text.
 
-The response must be a JSON object with exactly these three keys:
+## JSON Response Format
 
-```json
-{
-  "raw_markdown": "...",
-  "html": "...",
-  "top_story_summary": "..."
-}
+Your response must be EXACTLY this structure (replace the ... with actual content):
+
+```
+{"raw_markdown":"...","html":"...","top_story_summary":"..."}
 ```
 
-### `raw_markdown`
+Do NOT:
+- Use markdown code fences (```json)
+- Add any text before or after the JSON
+- Split JSON across multiple lines
+- Add explanations, headers, or any other text
 
+DO:
+- Output the JSON as a single line or properly formatted object
+- Escape quotes and backslashes in string values
+- Fill every `{{PLACEHOLDER}}` in the HTML section
+
+## Content for Each Key
+
+### raw_markdown
 The complete newsletter content as markdown. Include:
-- Headline/title for today
+- Headline/title
 - All sections from the topic brief
 - Proper markdown formatting (headers, lists, emphasis, links)
-- Full source URLs in the compiled content
+- Full source URLs
 
-### `html`
+### html
+The complete HTML document (do NOT include markdown fences):
+1. Use the template below as your base
+2. Replace every `{{PLACEHOLDER}}` with the corresponding content
+3. Return the entire HTML as a single string
+4. Escape HTML special characters if needed
+5. Ensure all {{...}} tokens are filled
 
-The complete HTML document. You MUST:
-1. Take the template below (between the `TEMPLATE START` and `TEMPLATE END` markers)
-2. Replace every `{{PLACEHOLDER}}` with the corresponding compiled content
-3. Return the entire filled-in HTML document as a string
-4. Do NOT use markdown fences
-
-**TEMPLATE START**
-
+Template:
 {{TEMPLATE_CONTENT}}
 
-**TEMPLATE END**
+### top_story_summary
+One sentence about the top story. Example:
+"Google released Gemini 2.0 Ultra with 2M token context."
 
-### `top_story_summary`
+## Start Output Now
 
-One sentence summarizing the top/most important story from this issue. Example:
-`"Google released Claude 4.5 Sonnet, achieving state-of-the-art performance on benchmark tasks."`
-
-## IMPORTANT
-
-- Return ONLY the JSON object. No additional text before or after.
-- Ensure all HTML is valid and properly escaped.
-- Fill every placeholder in the template — do not leave any `{{...}}` tokens unfilled.
-- Use the topic brief sources as the basis for content (no web search capability available).
-- Today's date is in the metadata provided by the topic brief.
+Output ONLY the JSON object. No preamble.
