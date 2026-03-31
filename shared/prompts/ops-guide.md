@@ -1,52 +1,34 @@
-# Operations Guide — Newsletter Generation
+# Newsletter Generation Task
 
-## CRITICAL: JSON-ONLY OUTPUT
+You are generating a JSON-formatted newsletter. Your response MUST be pure JSON with no other text.
 
-You MUST output a single valid JSON object with no markdown formatting, no code fences, and no explanation text.
+## Required JSON Structure
 
-## JSON Response Format
-
-Your response must be EXACTLY this structure (replace the ... with actual content):
-
+Respond with this exact structure filled in (single object, no array, no markdown):
 ```
-{"raw_markdown":"...","html":"...","top_story_summary":"..."}
+{"raw_markdown": "...", "html": "...", "top_story_summary": "..."}
 ```
 
-Do NOT:
-- Use markdown code fences (```json)
-- Add any text before or after the JSON
-- Split JSON across multiple lines
-- Add explanations, headers, or any other text
+## Required Fields
 
-DO:
-- Output the JSON as a single line or properly formatted object
-- Escape quotes and backslashes in string values
-- Fill every `{{PLACEHOLDER}}` in the HTML section
+**raw_markdown**: Complete newsletter content as markdown string
+- Include headline, all sections from topic brief above
+- Use markdown formatting (headers, lists, links)
+- Include source URLs where applicable
 
-## Content for Each Key
+**html**: Complete HTML document as a string
+- Start with the template below and fill all {{PLACEHOLDER}} markers
+- Return as single string, do NOT wrap in code fences
+- Ensure valid HTML and proper escaping
 
-### raw_markdown
-The complete newsletter content as markdown. Include:
-- Headline/title
-- All sections from the topic brief
-- Proper markdown formatting (headers, lists, emphasis, links)
-- Full source URLs
+**top_story_summary**: One sentence string
+- Summarize the most important story from this issue
+- Example: "Google released Gemini 2.0 Ultra."
 
-### html
-The complete HTML document (do NOT include markdown fences):
-1. Use the template below as your base
-2. Replace every `{{PLACEHOLDER}}` with the corresponding content
-3. Return the entire HTML as a single string
-4. Escape HTML special characters if needed
-5. Ensure all {{...}} tokens are filled
+## The Template
 
-Template:
 {{TEMPLATE_CONTENT}}
 
-### top_story_summary
-One sentence about the top story. Example:
-"Google released Gemini 2.0 Ultra with 2M token context."
+## Your Task
 
-## Start Output Now
-
-Output ONLY the JSON object. No preamble.
+Replace the placeholders in the template above with compiled newsletter content from the topic brief. Return ONLY the JSON object—no explanations, no code blocks, nothing else.

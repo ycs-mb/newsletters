@@ -57,13 +57,30 @@ def generate_newsletter_issue(slug: str, *, date: str | None = None) -> dict[str
         response_text = response_text[:-3]  # Remove trailing ```
     response_text = response_text.strip()
 
+    # Try to find and extract JSON from the response
+    parsed = None
+
+    # First attempt: direct parse
     try:
         parsed = json.loads(response_text)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
+        # Second attempt: look for JSON object in response
+        import re
+        # Find the first { and last } to extract JSON substring
+        start_idx = response_text.find("{")
+        end_idx = response_text.rfind("}")
+        if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
+            try:
+                json_str = response_text[start_idx:end_idx + 1]
+                parsed = json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
+
+    if parsed is None:
         raise RuntimeError(
-            f"Failed to parse OpenRouter JSON response: {e}\n"
+            f"Failed to parse OpenRouter JSON response\n"
             f"Response text (first 500 chars): {response_text[:500]}"
-        ) from e
+        )
 
     # Validate required keys
     required_keys = {"raw_markdown", "html", "top_story_summary"}
