@@ -30,5 +30,13 @@
     "eyebrow": "Daily Intelligence Brief",
     "name": "Indian Parliament news",
     "folder": "topics/indian-parliament-news"
+  },
+  "last-week-updates-from-microsoft": {
+    "description": "",
+    "accent": "terracotta",
+    "signal_label": "Signal",
+    "eyebrow": "Daily Intelligence Brief",
+    "name": "last week updates from microsoft",
+    "folder": "topics/last-week-updates-from-microsoft"
   }
 }

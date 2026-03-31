@@ -1,32 +1,50 @@
-# Operations Guide — Newsletter Delivery
+# Operations Guide — Newsletter Generation
 
-## ACTIONS (execute in order)
+## OUTPUT SPECIFICATION
 
-Today's date: determine from system clock (format YYYY-MM-DD).
+You must return **valid JSON only** (no markdown fences, no explanation text).
 
-1. Search the web thoroughly for all sections in the topic brief above.
+The response must be a JSON object with exactly these three keys:
 
-2. Compile newsletter content.
+```json
+{
+  "raw_markdown": "...",
+  "html": "...",
+  "top_story_summary": "..."
+}
+```
 
-3. Save raw markdown to:
-   `~/newsletters/topics/{SLUG}/YYYY-MM-DD.md`
-   (replace YYYY-MM-DD with today's date)
+### `raw_markdown`
 
-4. Read the template:
-   `~/newsletters/topics/{SLUG}/site/template.html`
+The complete newsletter content as markdown. Include:
+- Headline/title for today
+- All sections from the topic brief
+- Proper markdown formatting (headers, lists, emphasis, links)
+- Full source URLs in the compiled content
 
-5. Fill all {{PLACEHOLDERS}} with compiled content following the design guide above.
-   Save generated HTML to:
-   `~/newsletters/topics/{SLUG}/site/index.html`
+### `html`
 
-6. Save dated archive copy:
-   `cp ~/newsletters/topics/{SLUG}/site/index.html ~/newsletters/topics/{SLUG}/site/YYYY-MM-DD.html`
+The complete HTML document. You MUST:
+1. Take the template below (between the `TEMPLATE START` and `TEMPLATE END` markers)
+2. Replace every `{{PLACEHOLDER}}` with the corresponding compiled content
+3. Return the entire filled-in HTML document as a string
+4. Do NOT use markdown fences
 
-7. Build portal:
-   `cd ~/newsletters && uv run shared/build.py`
+**TEMPLATE START**
 
-8. Send one Telegram message to chat_id 1538018072:
-   Link: `http://100.110.249.12:8787/{SLUG}/`
-   Include: today's date, 1-sentence summary of top story.
+{{TEMPLATE_CONTENT}}
 
-9. Exit — do not start or restart the HTTP server (handled by run.sh).
+**TEMPLATE END**
+
+### `top_story_summary`
+
+One sentence summarizing the top/most important story from this issue. Example:
+`"Google released Claude 4.5 Sonnet, achieving state-of-the-art performance on benchmark tasks."`
+
+## IMPORTANT
+
+- Return ONLY the JSON object. No additional text before or after.
+- Ensure all HTML is valid and properly escaped.
+- Fill every placeholder in the template — do not leave any `{{...}}` tokens unfilled.
+- Use the topic brief sources as the basis for content (no web search capability available).
+- Today's date is in the metadata provided by the topic brief.

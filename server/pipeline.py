@@ -2,7 +2,7 @@
 """Background job orchestration.
 
 All long-running operations (topic creation, newsletter generation) run in a
-shared ThreadPoolExecutor.  Claude is invoked via subprocess.run().
+shared ThreadPoolExecutor. OpenRouter API calls are made via shared modules.
 
 Topic metadata is managed through shared.topic_registry (topics.json).
 """
@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 from server import jobs
 from server.jobs import JobStatus
+from shared.newsletter_generation import generate_newsletter_issue
+from shared.topic_md_generation import generate_topic_md
 
 if TYPE_CHECKING:
     from server.routers.topics import TopicCreate
@@ -27,19 +29,6 @@ def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> No
     jobs.update(job_id, step=step, status=status)
 
 
-def _run_claude(task: str, max_turns: int = 10) -> None:
-    """Invoke claude CLI via subprocess. Raises RuntimeError on non-zero exit."""
-    result = subprocess.run(
-        ["claude", "-p", task, "--dangerously-skip-permissions"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"claude exited {result.returncode}: {(result.stderr or result.stdout)[:500]}"
-        )
 
 
 def _build_portal() -> None:
@@ -65,23 +54,15 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         if css_src.exists():
             shutil.copy2(css_src, topic_dir / "site" / "style.css")
 
-        _update(job_id, "Generating research prompt…")
-        _run_claude(
-            f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
-            f"Topic name: {payload.name}\n"
-            f"Description: {payload.description}\n"
-            f"Focus areas: {payload.focus_areas}\n"
-            f"Output path: topics/{slug}/topic.md\n"
-            f"Format: Identity section (role, audience, signal label) + Sources + Sections only.\n"
-            f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
-            f"Do NOT generate prompt.md. Write topic.md only.",
-            max_turns=10,
+        _update(job_id, "Generating topic.md…")
+        topic_md_content = generate_topic_md(
+            payload.name,
+            payload.description,
+            payload.focus_areas,
+            slug
         )
         topic_md = topic_dir / "topic.md"
-        if not topic_md.exists():
-            raise RuntimeError(
-                f"newsletter-create did not produce topics/{slug}/topic.md"
-            )
+        topic_md.write_text(topic_md_content)
 
         # Register in topics.json (replaces _append_topic_toml)
         registry_save(slug, {
@@ -96,8 +77,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         assemble(slug)
 
         _update(job_id, "Running first newsletter issue…")
-        prompt_text = (topic_dir / "prompt.md").read_text()
-        _run_claude(prompt_text, max_turns=25)
+        generate_newsletter_issue(slug)
 
         _update(job_id, "Generating NotebookLM media…")
         try:
@@ -135,7 +115,7 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
             raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
 
         _update(job_id, "Running newsletter generation…")
-        _run_claude(prompt_path.read_text(), max_turns=25)
+        generate_newsletter_issue(slug)
 
         _update(job_id, "Generating NotebookLM media…")
         try:
@@ -189,21 +169,15 @@ def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> Non
 def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
     """Generate topic.md for an already-registered topic. Best-effort."""
     try:
-        _update(job_id, "Generating topic.md via Claude…")
-        _run_claude(
-            f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
-            f"Topic name: {payload.name}\n"
-            f"Description: {payload.description}\n"
-            f"Focus areas: {payload.focus_areas}\n"
-            f"Output path: topics/{slug}/topic.md\n"
-            f"Format: Identity section (role, audience, signal label) + Sources + Sections only.\n"
-            f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
-            f"Do NOT generate prompt.md. Write topic.md only.",
-            max_turns=10,
+        _update(job_id, "Generating topic.md…")
+        topic_md_content = generate_topic_md(
+            payload.name,
+            payload.description,
+            payload.focus_areas,
+            slug
         )
         topic_md = REPO_ROOT / "topics" / slug / "topic.md"
-        if not topic_md.exists():
-            raise RuntimeError(f"Claude did not produce topics/{slug}/topic.md")
+        topic_md.write_text(topic_md_content)
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
     except Exception as e:
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
