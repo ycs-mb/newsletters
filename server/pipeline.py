@@ -2,11 +2,10 @@
 """Background job orchestration.
 
 All long-running operations (topic creation, newsletter generation) run in a
-shared ThreadPoolExecutor.  Claude is invoked via subprocess.run().
+shared ThreadPoolExecutor. OpenRouter API calls are made via shared modules.
 
 Topic metadata is managed through shared.topic_registry (topics.json).
 """
-import json
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -16,6 +15,8 @@ from typing import TYPE_CHECKING
 
 from server import jobs
 from server.jobs import JobStatus
+from shared.newsletter_generation import generate_newsletter_issue
+from shared.topic_md_generation import generate_topic_md
 
 if TYPE_CHECKING:
     from server.routers.topics import TopicCreate
@@ -26,95 +27,6 @@ _executor = ThreadPoolExecutor(max_workers=4)
 
 def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> None:
     jobs.update(job_id, step=step, status=status)
-
-
-def _format_log_line(tool_name: str, tool_input: dict, context: str) -> str | None:
-    """Return a human-readable log line for a tool_use event, or None to skip."""
-    if context == "topic_md":
-        # For topic.md generation only emit the Write of topic.md itself
-        if tool_name == "Write":
-            fp = tool_input.get("file_path", "")
-            if fp.endswith("topic.md"):
-                return f"✍ Writing: {fp}"
-        return None
-
-    # newsletter context — full research trail
-    if tool_name == "WebSearch":
-        return f"🔍 Searching: {tool_input.get('query', '')}"
-    if tool_name in ("Write", "NotebookEdit"):
-        fp = tool_input.get("file_path", "")
-        return f"✍ Writing: {fp.split('/')[-1] if '/' in fp else fp}"
-    if tool_name == "Bash":
-        cmd = tool_input.get("command", "")
-        return f"⚡ Bash: {cmd[:80]}"
-    if tool_name == "Read":
-        fp = tool_input.get("file_path", "")
-        return f"📖 Reading: {fp.split('/')[-1] if '/' in fp else fp}"
-    if tool_name in ("Edit", "MultiEdit"):
-        fp = tool_input.get("file_path", "")
-        return f"✏️ Editing: {fp.split('/')[-1] if '/' in fp else fp}"
-    return f"🔧 {tool_name}"
-
-
-def _run_claude(task: str, max_turns: int = 10,
-                job_id: str | None = None,
-                context: str | None = None) -> None:
-    """Invoke claude CLI via subprocess. Raises RuntimeError on non-zero exit.
-
-    If job_id is provided, tool_use events from --output-format stream-json are
-    parsed and appended to the job log as human-readable step lines.
-    context: 'newsletter' | 'topic_md' — controls which events are logged.
-    """
-    cmd = [
-        "claude", "-p", task,
-        "--dangerously-skip-permissions",
-        "--max-turns", str(max_turns),
-    ]
-    if job_id:
-        cmd += ["--output-format", "stream-json"]
-
-    # stderr=STDOUT merges stderr into stdout so the read loop drains both,
-    # preventing pipe-buffer deadlock when stderr fills before stdout ends.
-    proc = subprocess.Popen(
-        cmd,
-        cwd=REPO_ROOT,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-
-    stdout_lines: list[str] = []
-    for raw in proc.stdout:
-        raw = raw.strip()
-        if not raw:
-            continue
-        stdout_lines.append(raw)
-        if job_id:
-            try:
-                event = json.loads(raw)
-                # Batched form: event["message"]["content"][]{type=tool_use}
-                blocks = (event.get("message") or {}).get("content", [])
-                # Streaming form: content_block_start with content_block.type=tool_use
-                cb = event.get("content_block", {})
-                if event.get("type") == "content_block_start" and (cb or {}).get("type") == "tool_use":
-                    blocks = [cb]
-                for block in blocks:
-                    if isinstance(block, dict) and block.get("type") == "tool_use":
-                        line = _format_log_line(
-                            block.get("name", ""),
-                            block.get("input", {}),
-                            context or "newsletter",
-                        )
-                        if line:
-                            jobs.append_log(job_id, line)
-            except (json.JSONDecodeError, TypeError, AttributeError):
-                pass
-
-    proc.wait(timeout=600)
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"claude exited {proc.returncode}: {chr(10).join(stdout_lines[-20:])[:500]}"
-        )
 
 
 def _build_portal() -> None:
@@ -128,6 +40,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
 
     try:
         _update(job_id, "Scaffolding topic folder…")
+        jobs.append_log(job_id, f"📁 Creating topics/{slug} structure")
         topic_dir = REPO_ROOT / "topics" / slug
         (topic_dir / "site").mkdir(parents=True, exist_ok=True)
         (topic_dir / "media").mkdir(exist_ok=True)
@@ -137,28 +50,22 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         css_src  = REPO_ROOT / "shared" / "assets" / "style.css"
         if tmpl_src.exists():
             shutil.copy2(tmpl_src, topic_dir / "site" / "template.html")
+            jobs.append_log(job_id, "📄 Copied template.html")
         if css_src.exists():
             shutil.copy2(css_src, topic_dir / "site" / "style.css")
+            jobs.append_log(job_id, "🎨 Copied style.css")
 
-        _update(job_id, "Generating research prompt…")
-        _run_claude(
-            f"Use the newsletter-create skill to generate a topic.md file for a new newsletter.\n"
-            f"Topic name: {payload.name}\n"
-            f"Description: {payload.description}\n"
-            f"Focus areas: {payload.focus_areas}\n"
-            f"Output path: topics/{slug}/topic.md\n"
-            f"Format: Identity section (role, audience, signal label) + Sources + Sections only.\n"
-            f"Do NOT include HTML output instructions, build steps, or Telegram delivery steps.\n"
-            f"Do NOT generate prompt.md. Write topic.md only.",
-            max_turns=10,
-            job_id=job_id,
-            context="topic_md",
+        _update(job_id, "Generating topic.md…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for topic.md content...")
+        topic_md_content = generate_topic_md(
+            payload.name,
+            payload.description,
+            payload.focus_areas,
+            slug
         )
         topic_md = topic_dir / "topic.md"
-        if not topic_md.exists():
-            raise RuntimeError(
-                f"newsletter-create did not produce topics/{slug}/topic.md"
-            )
+        topic_md.write_text(topic_md_content)
+        jobs.append_log(job_id, f"✍ Written: topics/{slug}/topic.md")
 
         # Register in topics.json (replaces _append_topic_toml)
         registry_save(slug, {
@@ -167,30 +74,38 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
             "accent": payload.accent,
             "signal_label": payload.signal_label,
         })
+        jobs.append_log(job_id, f"✅ Registered {slug} in topics.json")
 
         _update(job_id, "Assembling prompt…")
         from shared.assemble_prompt import assemble
         assemble(slug)
+        jobs.append_log(job_id, f"🔗 Assembled: topics/{slug}/prompt.md")
 
         _update(job_id, "Running first newsletter issue…")
-        prompt_text = (topic_dir / "prompt.md").read_text()
-        _run_claude(prompt_text, max_turns=25, job_id=job_id, context="newsletter")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for newsletter generation...")
+        generate_newsletter_issue(slug)
+        jobs.append_log(job_id, "✅ Newsletter issue generated")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
+            jobs.append_log(job_id, "🎙 Checking for NotebookLM media...")
             from shared.notebooklm_runner import generate_issue_media
             today = datetime.now().strftime("%Y-%m-%d")
             generate_issue_media(slug, today)
         except Exception as nlm_err:
             import logging
             logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
+            jobs.append_log(job_id, "⚠️ NotebookLM media skipped")
 
         _update(job_id, "Building portal…")
+        jobs.append_log(job_id, "🛠 Running shared/build.py...")
         _build_portal()
+        jobs.append_log(job_id, "🌐 Portal build complete")
 
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -204,6 +119,7 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
         topic_dir = REPO_ROOT / "topics" / slug
 
         _update(job_id, "Assembling prompt…")
+        jobs.append_log(job_id, f"🔗 Assembling prompt for {slug}...")
         from shared.assemble_prompt import assemble
         assemble(slug)
 
@@ -212,23 +128,30 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
             raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
 
         _update(job_id, "Running newsletter generation…")
-        _run_claude(prompt_path.read_text(), max_turns=25, job_id=job_id, context="newsletter")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for newsletter generation...")
+        generate_newsletter_issue(slug)
+        jobs.append_log(job_id, "✅ Newsletter issue generated")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
+            jobs.append_log(job_id, "🎙 Checking for NotebookLM media...")
             from shared.notebooklm_runner import generate_issue_media
             today = datetime.now().strftime("%Y-%m-%d")
             generate_issue_media(slug, today)
         except Exception as nlm_err:
             import logging
             logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
+            jobs.append_log(job_id, "⚠️ NotebookLM media skipped")
 
         _update(job_id, "Building portal…")
+        jobs.append_log(job_id, "🛠 Running shared/build.py...")
         _build_portal()
+        jobs.append_log(job_id, "🌐 Portal build complete")
 
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -236,12 +159,15 @@ def _media_generation_job(job_id: str, slug: str, date: str, artifact_type: str)
     """Generate one on-demand media artifact (podcast or video). Runs in thread pool."""
     try:
         jobs.update(job_id, step=f"Setting up NotebookLM notebook…", status=JobStatus.running)
+        jobs.append_log(job_id, f"🎙 Setting up NotebookLM for {slug} ({date})...")
         from shared.notebooklm_runner import start_on_demand_artifact, wait_and_download_on_demand
         notebook_id, task_id = start_on_demand_artifact(slug, date, artifact_type)
 
         label = "podcast" if artifact_type == "podcast" else "video"
         jobs.update(job_id, step=f"Generating {label} (this takes 10–45 min)…")
+        jobs.append_log(job_id, f"⏳ Generating {label} (polling task {task_id})...")
         rel_path = wait_and_download_on_demand(slug, date, artifact_type, notebook_id, task_id)
+        jobs.append_log(job_id, f"✅ {label.capitalize()} downloaded: {rel_path}")
 
         jobs.update(job_id, step="Building portal…")
         subprocess.run(["uv", "run", "shared/build.py"], cwd=REPO_ROOT, check=True)
@@ -250,6 +176,7 @@ def _media_generation_job(job_id: str, slug: str, date: str, artifact_type: str)
         jobs.update(job_id, step="Done ✓", status=JobStatus.done, artifact_url=artifact_url)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -263,86 +190,23 @@ def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> Non
     _executor.submit(_create_topic_job, job_id, slug, payload)
 
 
-_TOPIC_MD_PROMPT = """\
-Write a topic.md file for a newsletter automation system.
-Output ONLY the file `topics/{slug}/topic.md` using the Write tool. Do not create any other files.
-
-## Newsletter Details
-
-Topic name: {name}
-Description: {description}
-Signal label: {signal_label}
-
-## Focus Areas Provided by User
-
-{focus_areas}
-
-## Required topic.md Structure
-
-The file must follow this EXACT structure (three sections, nothing else):
-
-```
-# {name} — Topic Brief
-
-## Identity
-- Role: newsletter curator covering [concise role description derived from the topic]
-- Audience: [who reads this newsletter]
-- Signal label: {signal_label} (1–5, where 5 = [describe what a 5 means for this topic])
-
-## Sources
-
-[Categorized, specific sources to monitor — real URLs where possible]
-**Official / Primary:**
-- ...
-
-**GitHub / Open Source:**
-- ...
-
-**Community:**
-- Subreddits, Discord servers, X/Twitter accounts, HN searches
-
-**Research & Publications:**
-- Journals, preprints, conference proceedings
-
-## Sections
-
-### Section 01: [Adapt title — official releases, core updates, or breaking news]
-[Research instructions: what to search for, how many items, what to include per item]
-
-### Section 02: [Highlights / Major Announcements]
-[Research instructions. Highlight card categories: `voice` (people/opinion), `model` (tech/products), `company` (org news), `promo` (partnerships). Aim for 4–6 cards.]
-
-### Section 03: GitHub Picks (past 7 days)
-[Search terms, repo criteria, what to include per repo. Aim for 5–8 repos.]
-
-### Section 04: Community & Research (past 24 hours)
-[Which communities to check, what to surface, how to format entries]
-
-### Section 05: Tip of the Day
-[What kind of tip fits this topic. One actionable, non-obvious insight with an example if applicable.]
-```
-
-Use the focus areas above to fill in all the topic-specific content — real source URLs, adapted section titles, and precise research instructions. The file must be immediately usable as a newsletter research brief.
-"""
-
-
 def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
-    """Generate topic.md for an already-registered topic via Claude CLI."""
+    """Generate topic.md for an already-registered topic via OpenRouter."""
     try:
-        _update(job_id, "Generating topic.md via Claude…")
-        prompt = _TOPIC_MD_PROMPT.format(
-            slug=slug,
-            name=payload.name,
-            description=payload.description or payload.name,
-            signal_label=payload.signal_label or "Signal",
-            focus_areas=payload.focus_areas.strip() or "(none provided — use best judgement)",
+        _update(job_id, "Generating topic.md via OpenRouter…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for topic.md content...")
+        topic_md_content = generate_topic_md(
+            payload.name,
+            payload.description,
+            payload.focus_areas,
+            slug
         )
-        _run_claude(prompt, max_turns=10, job_id=job_id, context="topic_md")
         topic_md = REPO_ROOT / "topics" / slug / "topic.md"
-        if not topic_md.exists():
-            raise RuntimeError(f"Claude did not produce topics/{slug}/topic.md")
+        topic_md.write_text(topic_md_content)
+        jobs.append_log(job_id, f"✍ Written: topics/{slug}/topic.md")
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
