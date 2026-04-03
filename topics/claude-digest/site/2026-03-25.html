@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Digest — March 25, 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,300;1,7..72,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ═══ MASTHEAD ═══ -->
+  <header class="masthead">
+    <div class="masthead-rules">
+      <div class="rule-thick"></div>
+      <div class="rule-thin"></div>
+    </div>
+
+    <div class="masthead-eyebrow">Daily Intelligence Brief</div>
+    <h1 class="masthead-title">Claude <em>Digest</em></h1>
+    <div class="masthead-date">Wednesday, March 25, 2026</div>
+
+    <div class="masthead-bottom">
+      <span class="masthead-meta">Automated via Claude Code</span>
+      <div class="signal">
+        <span class="signal-label">Signal</span>
+        <div class="signal-dots">
+          <div class="signal-dot filled"></div>
+          <div class="signal-dot filled"></div>
+          <div class="signal-dot filled"></div>
+          <div class="signal-dot filled"></div>
+          <div class="signal-dot"></div>
+        </div>
+        <span class="signal-rating">4 / 5</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ SECTION 01: CLAUDE CODE ═══ -->
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">01</span>
+      <h2>Claude Code</h2>
+      <span class="section-sub">v2.1.81–v2.1.82 · Mar 20–24</span>
+    </div>
+
+    <div class="release-list reveal-stagger reveal">
+      <div class="release-item">
+        <span class="release-version">v2.1.82</span>
+        <span class="release-date">Mar 24</span>
+        <span class="release-desc">Added <code>rate_limits</code> field to statusline scripts — shows Claude.ai 5-hour &amp; 7-day usage windows with <code>used_percentage</code> and <code>resets_at</code>. Added <code>source: 'settings'</code> plugin marketplace source for inline plugin declarations in <code>settings.json</code>. Added <code>effort</code> frontmatter for skills and slash commands. MCP elicitation support with new Elicitation hooks and PostCompact hook. <code>--channels</code> research preview: MCP servers can push messages into your session.</span>
+      </div>
+      <div class="release-item">
+        <span class="release-version">v2.1.81</span>
+        <span class="release-date">Mar 20</span>
+        <span class="release-desc">Added <code>--bare</code> flag for scripted <code>-p</code> calls — skips hooks, LSP, plugin sync, skill directory walks; requires <code>ANTHROPIC_API_KEY</code>. Added <code>--channels</code> permission relay so channel servers can forward tool approval prompts to your phone. Fixed re-authentication storm when multiple concurrent sessions share an OAuth token refresh. Fixed voice mode silently swallowing retry failures. Fixed Windows PATH inheritance for Bash tool (regression in v2.1.78). Fixed clipboard copy failing silently in tmux. Fixed CJK character bleed at right edge. macOS startup ~60ms faster via parallel keychain reads.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SECTION 02: ANTHROPIC OFFICIAL ═══ -->
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">02</span>
+      <h2>Anthropic Official</h2>
+    </div>
+
+    <div class="highlight-grid reveal-stagger reveal">
+      <div class="highlight-card promo">
+        <div class="highlight-label">Partnership</div>
+        <div class="highlight-title">Apple Xcode 26.3 + Claude Agent SDK</div>
+        <div class="highlight-desc">Xcode 26.3 natively integrates the Claude Agent SDK — the same harness powering Claude Code. Developers get subagents, background tasks, and plugins directly inside Xcode without leaving the IDE. Available as release candidate to Apple Developer Program members now.</div>
+      </div>
+      <div class="highlight-card voice">
+        <div class="highlight-label">Education</div>
+        <div class="highlight-title">Claude Code Advanced Patterns Webinar</div>
+        <div class="highlight-desc">Anthropic hosted a live webinar (Mar 24) covering subagent orchestration, MCP tool integrations, and context strategies for scaling Claude Code to large, messy, real-world codebases. Subagents can run up to 7 parallel operations per orchestration step.</div>
+      </div>
+      <div class="highlight-card company">
+        <div class="highlight-label">Research</div>
+        <div class="highlight-title">Economic Index: Learning Curves (Mar 2026)</div>
+        <div class="highlight-desc">Anthropic's March Economic Index report draws on 1M+ real Claude conversations mapped to O*NET tasks. Computer programmers top observed AI exposure at 74.5%. No systematic unemployment rise detected in most-exposed occupations — yet.</div>
+      </div>
+      <div class="highlight-card promo">
+        <div class="highlight-label">Enterprise</div>
+        <div class="highlight-title">Snowflake $200M Partnership</div>
+        <div class="highlight-desc">Multi-year, $200M strategic agreement with Snowflake brings Claude models to 12,600+ global enterprise customers across major cloud platforms. Part of Anthropic's accelerating enterprise push in 2026.</div>
+      </div>
+      <div class="highlight-card model">
+        <div class="highlight-label">Model</div>
+        <div class="highlight-title">Claude Sonnet 4.6 — 1M Token Context Beta</div>
+        <div class="highlight-desc">Sonnet 4.6 enters 1M token context window beta. Developers consistently prefer it over Opus 4.5 for coding tasks — Sonnet-class performance at Opus-class results. Accessible via API and claude.ai.</div>
+      </div>
+      <div class="highlight-card company">
+        <div class="highlight-label">Policy</div>
+        <div class="highlight-title">National Security Advisory Council</div>
+        <div class="highlight-desc">Anthropic introduces a National Security and Public Sector Advisory Council to guide responsible deployment in government and defense contexts — a signal of deepening institutional presence.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SECTION 03: GITHUB PICKS ═══ -->
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">03</span>
+      <h2>GitHub Picks</h2>
+      <span class="section-sub">7 repos</span>
+    </div>
+
+    <div class="repo-list reveal-stagger reveal">
+      <a href="https://github.com/affaan-m/everything-claude-code" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">affaan-m/everything-claude-code</span>
+          <div class="repo-badges">
+            <span class="repo-stars">104k</span>
+            <span class="repo-diff medium">Medium</span>
+          </div>
+        </div>
+        <div class="repo-desc">Agent harness performance optimization — skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, and Cursor.</div>
+        <div class="repo-why">The de-facto Claude Code power-user framework; if you're building a serious Claude Code setup, this is the starting point.</div>
+      </a>
+
+      <a href="https://github.com/Piebald-AI/claude-code-system-prompts" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">Piebald-AI/claude-code-system-prompts</span>
+          <div class="repo-badges">
+            <span class="repo-stars">3.1k</span>
+            <span class="repo-diff easy">Easy</span>
+          </div>
+        </div>
+        <div class="repo-desc">All parts of Claude Code's system prompt, 18 builtin tool descriptions, sub-agent prompts (Plan/Explore/Task), and utility prompts. Updated each release.</div>
+        <div class="repo-why">Essential transparency tool — understand exactly what instructions Claude Code operates under, version by version.</div>
+      </a>
+
+      <a href="https://github.com/marckrenn/claude-code-changelog" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">marckrenn/claude-code-changelog</span>
+          <div class="repo-badges">
+            <span class="repo-stars">1.8k</span>
+            <span class="repo-diff easy">Easy</span>
+          </div>
+        </div>
+        <div class="repo-desc">Tracks prompts, feature flags, and metadata of Claude Code releases beyond what the official changelog covers.</div>
+        <div class="repo-why">Subscribe for release diffs that reveal hidden feature flags and prompt changes the changelog glosses over.</div>
+      </a>
+
+      <a href="https://github.com/FlorianBruniaux/claude-code-ultimate-guide" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">FlorianBruniaux/claude-code-ultimate-guide</span>
+          <div class="repo-badges">
+            <span class="repo-stars">2.4k</span>
+            <span class="repo-diff easy">Easy</span>
+          </div>
+        </div>
+        <div class="repo-desc">Comprehensive beginner-to-power-user guide with production-ready templates, agentic workflow guides, quizzes, and a cheatsheet.</div>
+        <div class="repo-why">Best single-resource onboarding for new Claude Code users or teams standardizing their agentic dev workflow.</div>
+      </a>
+
+      <a href="https://github.com/duanyytop/agents-radar" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">duanyytop/agents-radar</span>
+          <div class="repo-badges">
+            <span class="repo-stars">890</span>
+            <span class="repo-diff easy">Easy</span>
+          </div>
+        </div>
+        <div class="repo-desc">Tracks Claude Code, Codex, Gemini CLI, OpenClaw ecosystem, GitHub AI trending, and Anthropic/OpenAI updates. Daily digests via GitHub Actions.</div>
+        <div class="repo-why">Rare cross-ecosystem tracker — useful for comparing AI coding tooling evolution across vendors in one repo.</div>
+      </a>
+
+      <a href="https://github.com/czlonkowski/n8n-mcp" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">czlonkowski/n8n-mcp</span>
+          <div class="repo-badges">
+            <span class="repo-stars">1.2k</span>
+            <span class="repo-diff medium">Medium</span>
+          </div>
+        </div>
+        <div class="repo-desc">MCP server for Claude Desktop / Claude Code / Windsurf / Cursor to build n8n workflows via natural language.</div>
+        <div class="repo-why">Bridges AI coding assistants and workflow automation — Claude describes and builds your n8n pipeline directly.</div>
+      </a>
+
+      <a href="https://github.com/mvanhorn/last30days-skill" target="_blank" rel="noopener" class="repo-card">
+        <div class="repo-top">
+          <span class="repo-name">mvanhorn/last30days-skill</span>
+          <div class="repo-badges">
+            <span class="repo-stars">640</span>
+            <span class="repo-diff easy">Easy</span>
+          </div>
+        </div>
+        <div class="repo-desc">Claude Code skill that researches any topic across Reddit, X, YouTube, HN, Polymarket, and the web — then synthesizes a grounded summary.</div>
+        <div class="repo-why">Meta-useful: a skill for building newsletter-style research digests, right inside Claude Code sessions.</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══ SECTION 04: COMMUNITY & RESEARCH ═══ -->
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">04</span>
+      <h2>Community &amp; Research</h2>
+    </div>
+
+    <div class="reveal">
+      <div class="community-block">
+        <div class="source-name">
+          <span class="source-icon">&#128172;</span> Reddit
+          <span class="source-meta">r/ClaudeAI &middot; 612k members</span>
+        </div>
+        <div class="community-item">
+          <div class="community-title">Claude Code vs Codex 2026 — What 500+ Developers Really Think <span class="upvote-badge">&#9650; 2.1k</span></div>
+          <div class="community-detail">Claude wins code quality in blind tests (67% win rate) but hits usage limits; Codex rated more practical as a daily driver. <a href="https://dev.to/_46ea277e677b888e0cd13/claude-code-vs-codex-2026-what-500-reddit-developers-really-think-31pb" target="_blank" rel="noopener">Read &rarr;</a></div>
+        </div>
+        <div class="community-item">
+          <div class="community-title">Developers in their 50s &amp; 60s: Claude Code reignited passion for building <span class="upvote-badge">&#9650; 3.4k</span></div>
+          <div class="community-detail">Viral Threads crosspost resonating on Reddit — older devs rediscovering joy in problem-solving; counter-debate about AI removing craft and fulfillment. <a href="https://www.threads.com/@carnage4life/post/DVnwIVWlORu/" target="_blank" rel="noopener">Read &rarr;</a></div>
+        </div>
+      </div>
+
+      <div class="community-block">
+        <div class="source-name">
+          <span class="source-icon">&#128187;</span> Hacker News
+        </div>
+        <div class="community-item">
+          <div class="community-title">Claude March 2026 usage promotion <span class="upvote-badge">&#9650; 480</span></div>
+          <div class="community-detail">Active thread dissecting the new <code>rate_limits</code> statusline field, 5-hour vs 7-day reset windows, and whether paid plans deliver sufficient headroom for power users. <a href="https://news.ycombinator.com/item?id=47380647" target="_blank" rel="noopener">Discuss &rarr;</a></div>
+        </div>
+      </div>
+
+      <div class="community-block">
+        <div class="source-name">
+          <span class="source-icon">&#128218;</span> arXiv / Research
+        </div>
+        <div class="community-item">
+          <div class="community-title">Year-long QFT calculation completed in 2 weeks with Claude Opus 4.5</div>
+          <div class="community-detail">Harvard physicist Matthew Schwartz used Claude Opus 4.5 to complete a quantum field theory calculation (Sudakov shoulder, C-parameter) that would have taken a year. Paper now on arXiv (Mar 23). <a href="https://blockchain.news/news/harvard-physicist-claude-ai-research-acceleration" target="_blank" rel="noopener">Read &rarr;</a></div>
+        </div>
+        <div class="community-item">
+          <div class="community-title">Reasoning Models Don't Always Say What They Think — Anthropic</div>
+          <div class="community-detail">Anthropic paper finds reasoning models' visible chain-of-thought does not faithfully represent their actual internal reasoning process — key implications for interpretability and trust. <a href="https://assets.anthropic.com/m/71876fabef0f0ed4/original/reasoning_models_paper.pdf" target="_blank" rel="noopener">PDF &rarr;</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SECTION 05: TIP OF THE DAY ═══ -->
+  <section>
+    <div class="section-header reveal">
+      <span class="section-num">05</span>
+      <h2>Tip of the Day</h2>
+    </div>
+
+    <div class="reveal">
+      <div class="tip-container">
+        <div class="tip-label">Actionable</div>
+        <div class="tip-text">
+          <p><strong>Use <code>--bare</code> for clean scripted <code>-p</code> calls</strong> &mdash; new in v2.1.81</p>
+          <p>When automating Claude Code with <code>-p</code>, the <code>--bare</code> flag strips all interactive machinery: hooks, LSP, plugin sync, and skill directory walks are skipped entirely. Output is clean and predictable &mdash; ideal for CI pipelines, cron jobs, and shell scripts.</p>
+          <div class="tip-code"><code><span class="cmd">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="str">sk-ant-...</span> <span class="cmd">claude</span> <span class="flag">-p</span> <span class="str">"summarize changes in this PR"</span> <span class="flag">--bare</span> <span class="op">&lt;</span> diff.txt</code></div>
+          <p>Two caveats: <code>--bare</code> disables OAuth and keychain auth entirely &mdash; you must supply <code>ANTHROPIC_API_KEY</code> explicitly. Auto-memory is also fully disabled in bare mode, so nothing is persisted across runs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="container">
+    <div class="footer-rules">
+      <div class="rule-thin" style="height:1px;background:var(--rule)"></div>
+      <div class="rule-thick" style="height:3px;background:var(--ink)"></div>
+    </div>
+    <div class="footer-text">Daily Claude Digest &middot; Automated via Claude Code</div>
+    <div class="footer-colophon">Two CLI releases (v2.1.81&ndash;82), Apple Xcode gains native Claude Agent SDK, Anthropic Economic Index tracks AI&rsquo;s real labor market footprint &mdash; Signal 4/5.</div>
+  </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+
+  document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => {
+    observer.observe(el);
+  });
+});
+</script>
+
+</body>
+</html>

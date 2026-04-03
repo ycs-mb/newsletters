@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{DATE_TITLE}} — {{TOPIC_NAME}}</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner container">
+      <div class="masthead-eyebrow">Daily Intelligence Brief</div>
+      <h1 class="masthead-title">{{TOPIC_NAME}}</h1>
+      <div class="masthead-date">{{DATE_LONG}}</div>
+      <div class="masthead-meta">
+        <span class="signal-label">{{SIGNAL_LABEL}}</span>
+        <span class="signal-rating">{{SIGNAL_RATING}}</span>
+        <div class="signal-dots">{{SIGNAL_DOTS}}</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="section" id="section-01">
+      <h2 class="section-title">{{SECTION_01_TITLE}}</h2>
+      <div class="release-list">{{RELEASE_ITEMS}}</div>
+    </section>
+
+    <section class="section" id="section-02">
+      <h2 class="section-title">{{SECTION_02_TITLE}}</h2>
+      <div class="highlight-grid">{{HIGHLIGHT_CARDS}}</div>
+    </section>
+
+    <section class="section" id="section-03">
+      <h2 class="section-title">{{SECTION_03_TITLE}}</h2>
+      <div class="repo-count">{{REPO_COUNT}} picks</div>
+      <div class="repo-grid">{{REPO_CARDS}}</div>
+    </section>
+
+    <section class="section" id="section-04">
+      <h2 class="section-title">{{SECTION_04_TITLE}}</h2>
+      <div class="community-feed">{{COMMUNITY_BLOCKS}}</div>
+    </section>
+
+    <section class="section" id="section-05">
+      <h2 class="section-title">{{SECTION_05_TITLE}}</h2>
+      <div class="tip-content">{{TIP_CONTENT}}</div>
+    </section>
+
+    {{MEDIA_SECTION}}
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-colophon">{{FOOTER_COLOPHON}}</div>
+  </footer>
+</body>
+</html>

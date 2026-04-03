@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!--
+  shared/templates/manage.html
+  Newsroom — Topic Management UI
+
+  Editor control surface for dynamic topic registry. Allows creation, editing,
+  and deletion of topics backed by topics.json. Served at /newsroom on the API.
+  Extends the editorial design system with management-specific styles.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -419,6 +427,78 @@
   letter-spacing: 0.5px;
 }
 
+/* ── Generate button ─────────────────────────────────────────── */
+.btn-generate {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 8px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--terracotta);
+  color: var(--terracotta);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.btn-generate:hover:not(:disabled) {
+  background: var(--terracotta);
+  color: #fff;
+}
+.btn-generate:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.btn-generate .generate-icon { font-size: 13px; }
+
+/* ── Live stream panel ───────────────────────────────────────── */
+.stream-panel {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--terracotta);
+  background: var(--paper-warm, #fdfbf7);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.stream-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule-light);
+  background: rgba(0,0,0,0.02);
+}
+.stream-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--terracotta);
+}
+.stream-label.done { color: var(--sage); }
+.stream-label.error { color: #c0392b; }
+.stream-cursor {
+  color: var(--terracotta);
+  animation: blink 0.9s step-end infinite;
+}
+.stream-cursor.hidden { display: none; }
+@keyframes blink { 50% { opacity: 0; } }
+.stream-output {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.75;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
 /* ── Job Toast ───────────────────────────────────────────────── */
 .toast-container {
   position: fixed;
@@ -808,13 +888,28 @@
         <div class="form-hint">OpenRouter will generate topic.md from this automatically if no content is pasted below.</div>
       </div>
 
-      <div class="form-group full-width">
+      <div class="form-group full-width" id="topic-md-group">
         <label class="form-label" for="topic-md-input">
           Topic.md Content
           <span style="color:var(--sage);font-size:8px;letter-spacing:1px;margin-left:8px;">RECOMMENDED</span>
         </label>
-        <textarea class="form-textarea" id="topic-md-input" placeholder="Paste your topic.md content here to make the topic immediately ready for newsletter generation…" style="min-height:140px;font-family:var(--font-mono);font-size:12px;line-height:1.7;"></textarea>
-        <div class="form-hint">Providing this directly registers the topic as ready — no AI generation needed.</div>
+
+        <!-- Generate button -->
+        <button type="button" class="btn btn-generate" id="generate-topic-md-btn" disabled>
+          <span class="generate-icon">⚡</span> Generate topic.md with AI
+        </button>
+
+        <!-- Live streaming panel -->
+        <div class="stream-panel" id="stream-panel" style="display:none">
+          <div class="stream-panel-header">
+            <span class="stream-label" id="stream-label">Generating…</span>
+            <span class="stream-cursor" id="stream-cursor">▋</span>
+          </div>
+          <pre class="stream-output" id="stream-output"></pre>
+        </div>
+
+        <textarea class="form-textarea" id="topic-md-input" placeholder="Paste your topic.md content here, or click Generate above…" style="min-height:140px;font-family:var(--font-mono);font-size:12px;line-height:1.7;display:none;"></textarea>
+        <div class="form-hint">Click <em>Generate</em> to let AI draft topic.md from your name and focus areas. You can also paste content directly.</div>
       </div>
 
       <div class="form-group">
@@ -824,7 +919,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="reset" class="btn">Clear</button>
+        <button type="reset" class="btn" id="clear-btn">Clear</button>
         <button type="submit" class="btn btn-primary" id="create-btn">Create Topic</button>
       </div>
     </div>
@@ -1182,10 +1277,131 @@ async function deleteTopic(slug) {
   }
 }
 
+// ── Generate topic.md (SSE streaming) ──
+const generateBtn   = document.getElementById('generate-topic-md-btn');
+const streamPanel   = document.getElementById('stream-panel');
+const streamOutput  = document.getElementById('stream-output');
+const streamLabel   = document.getElementById('stream-label');
+const streamCursor  = document.getElementById('stream-cursor');
+const topicMdInput  = document.getElementById('topic-md-input');
+
+let generatedTopicMd = ''; // accumulated from stream
+
+function slugify(name) {
+  return name.toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .slice(0, 40);
+}
+
+function canGenerate() {
+  const name  = document.getElementById('topic-name').value.trim();
+  const focus = document.getElementById('topic-focus').value.trim();
+  return name.length > 0 && focus.length > 0;
+}
+
+function updateGenerateBtn() {
+  generateBtn.disabled = !canGenerate();
+}
+
+document.getElementById('topic-name').addEventListener('input', updateGenerateBtn);
+document.getElementById('topic-focus').addEventListener('input', updateGenerateBtn);
+
+generateBtn.addEventListener('click', async () => {
+  const name        = document.getElementById('topic-name').value.trim();
+  const description = document.getElementById('topic-description').value.trim();
+  const focusAreas  = document.getElementById('topic-focus').value.trim();
+  const slug        = slugify(name);
+
+  if (!name || !focusAreas) return;
+
+  // Reset state
+  generatedTopicMd = '';
+  streamOutput.textContent = '';
+  streamLabel.textContent  = 'Generating…';
+  streamLabel.className    = 'stream-label';
+  streamCursor.className   = 'stream-cursor';
+  streamPanel.style.display = 'block';
+  topicMdInput.style.display = 'none';
+  generateBtn.disabled = true;
+  document.getElementById('create-btn').disabled = true;
+
+  try {
+    const response = await fetch(`${API}/topics/generate-topic-md`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, focus_areas: focusAreas, slug }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      streamLabel.textContent = 'Error';
+      streamLabel.className   = 'stream-label error';
+      streamCursor.className  = 'stream-cursor hidden';
+      streamOutput.textContent = err;
+      generateBtn.disabled = false;
+      return;
+    }
+
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+
+        if (payload === '[DONE]') {
+          streamLabel.textContent = 'Done ✓';
+          streamLabel.className   = 'stream-label done';
+          streamCursor.className  = 'stream-cursor hidden';
+          // Populate hidden textarea so the submit handler can use it
+          topicMdInput.value = generatedTopicMd;
+          document.getElementById('create-btn').disabled = false;
+          generateBtn.disabled = !canGenerate();
+          return;
+        }
+
+        if (payload.startsWith('[ERROR]')) {
+          streamLabel.textContent = 'Error';
+          streamLabel.className   = 'stream-label error';
+          streamCursor.className  = 'stream-cursor hidden';
+          streamOutput.textContent += '\n' + payload.slice(7).trim();
+          generateBtn.disabled = false;
+          return;
+        }
+
+        // Unescape newlines that were escaped server-side
+        const token = payload.replace(/\\n/g, '\n');
+        generatedTopicMd += token;
+        streamOutput.textContent += token;
+        // Auto-scroll to bottom
+        streamOutput.scrollTop = streamOutput.scrollHeight;
+      }
+    }
+  } catch (err) {
+    streamLabel.textContent  = 'Error';
+    streamLabel.className    = 'stream-label error';
+    streamCursor.className   = 'stream-cursor hidden';
+    streamOutput.textContent += '\n' + err.message;
+    generateBtn.disabled = false;
+  }
+});
+
 // ── Create Form ──
 const form = document.getElementById('create-form');
 const accentSelect = document.getElementById('topic-accent');
 const accentPreview = document.getElementById('accent-preview');
+
+// ── Accent Preview ──
 
 const accentColors = {
   terracotta: '#c44b1a',
@@ -1200,12 +1416,21 @@ function updateAccentPreview() {
 accentSelect.addEventListener('change', updateAccentPreview);
 updateAccentPreview();
 
+form.addEventListener('reset', () => {
+  generatedTopicMd = '';
+  streamPanel.style.display = 'none';
+  streamOutput.textContent  = '';
+  topicMdInput.value        = '';
+  setTimeout(updateGenerateBtn, 0);
+});
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('topic-name').value.trim();
   if (!name) return;
 
-  const topicMdContent = document.getElementById('topic-md-input').value.trim();
+  // topic_md comes from: direct paste into textarea OR stream result
+  const topicMdContent = topicMdInput.value.trim() || generatedTopicMd.trim();
   const payload = {
     name,
     description: document.getElementById('topic-description').value.trim(),
@@ -1238,6 +1463,12 @@ form.addEventListener('submit', async (e) => {
       }
       form.reset();
       updateAccentPreview();
+      // Reset stream panel state
+      generatedTopicMd = '';
+      streamPanel.style.display = 'none';
+      streamOutput.textContent  = '';
+      topicMdInput.value        = '';
+      updateGenerateBtn();
       fetchTopics();
     } else {
       toast(data.detail || 'Failed to create', 'error');

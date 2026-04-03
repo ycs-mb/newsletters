@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archive — Daily Digest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,300;1,7..72,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../portal.css">
+</head>
+<body>
+
+<div class="container">
+
+  <header class="masthead">
+    <div class="masthead-rules">
+      <div class="rule-thick"></div>
+      <div class="rule-thin"></div>
+    </div>
+
+    <div class="masthead-eyebrow">Historical Index</div>
+    <h1 class="masthead-title">Digest <em>Archive</em></h1>
+    <div class="masthead-date">{{DATE_LONG}}</div>
+
+    <div class="masthead-bottom">
+      <span class="masthead-meta">{{ARCHIVE_COUNT}} Published Issues</span>
+      <a href="../index.html" class="portal-back-link">&larr; Back to Briefings</a>
+    </div>
+  </header>
+
+  <section class="archive-section">
+    <div class="section-header reveal portal-section-header">
+      <h2>All Issues</h2>
+      <span class="portal-link-note">{{ARCHIVE_COUNT}} total</span>
+    </div>
+
+    <div class="archive-list reveal-stagger reveal">
+      {{ARCHIVE_ITEMS}}
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-rules">
+      <div class="rule-thin" style="height:1px;background:var(--rule)"></div>
+      <div class="rule-thick" style="height:3px;background:var(--ink)"></div>
+    </div>
+    <div class="footer-text">Daily Digest Archive &middot; Automated via Claude Code</div>
+    <div class="footer-colophon">{{FOOTER_COLOPHON}}</div>
+  </div>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+
+  document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => {
+    observer.observe(el);
+  });
+});
+</script>
+
+</body>
+</html>

@@ -32,15 +32,25 @@ def _topic_dir(slug: str) -> Path:
     return _REPO_ROOT / "topics" / slug
 
 
-def _ensure_folder(slug: str) -> dict[str, str]:
+def _ensure_folder(slug: str) -> str:
     """Return the canonical folder value for a slug."""
     return f"topics/{slug}"
 
+
+def _ensure_registry_exists() -> None:
+    """Idempotent: ensure topics.json exists, creating it empty if needed."""
+    if not _REGISTRY_PATH.exists():
+        with _lock:
+            # Double-check after acquiring lock
+            if not _REGISTRY_PATH.exists():
+                _REGISTRY_PATH.write_text("{}\n")
+
 # ---------------------------------------------------------------------------
-# Read operations (no lock needed — atomic file reads on POSIX)
+# Read operations
 # ---------------------------------------------------------------------------
 
 def _read_registry() -> dict:
+    """Read registry from disk. Thread-safe via lock on writes."""
     if not _REGISTRY_PATH.exists():
         return {}
     return json.loads(_REGISTRY_PATH.read_text())
@@ -103,23 +113,34 @@ def save(slug: str, data: dict) -> dict:
 
     *data* should include at least ``name``.  Missing optional fields are
     filled from ``_DEFAULTS``.  ``folder`` is always derived from the slug.
+
+    Uses atomic writes (temp file + rename) to prevent corruption on crash.
     """
     entry = {**_DEFAULTS, **data, "folder": _ensure_folder(slug)}
     with _lock:
         registry = _read_registry()
         registry[slug] = entry
-        _REGISTRY_PATH.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+        # Atomic write: write to temp file, then rename
+        tmp_path = _REGISTRY_PATH.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+        tmp_path.replace(_REGISTRY_PATH)
     return entry
 
 
 def delete(slug: str) -> bool:
-    """Remove a topic from the registry.  Returns True if it existed."""
+    """Remove a topic from the registry.  Returns True if it existed.
+
+    Uses atomic writes (temp file + rename) to prevent corruption on crash.
+    """
     with _lock:
         registry = _read_registry()
         if slug not in registry:
             return False
         del registry[slug]
-        _REGISTRY_PATH.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+        # Atomic write: write to temp file, then rename
+        tmp_path = _REGISTRY_PATH.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+        tmp_path.replace(_REGISTRY_PATH)
     return True
 
 
@@ -131,6 +152,7 @@ def migrate_from_toml(toml_path: Optional[Path] = None) -> dict:
     """One-time migration: read topics.toml and write topics.json.
 
     Returns the migrated registry dict.  Skips if topics.json already exists.
+    Uses atomic writes to prevent corruption on crash.
     """
     if _REGISTRY_PATH.exists():
         return _read_registry()
@@ -147,5 +169,8 @@ def migrate_from_toml(toml_path: Optional[Path] = None) -> dict:
     for slug, entry in toml_data.items():
         registry[slug] = {**_DEFAULTS, **entry, "folder": _ensure_folder(slug)}
 
-    _REGISTRY_PATH.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+    # Atomic write: write to temp file, then rename
+    tmp_path = _REGISTRY_PATH.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
+    tmp_path.replace(_REGISTRY_PATH)
     return registry

@@ -1,32 +1,34 @@
-# Operations Guide — Newsletter Delivery
+# Newsletter Generation Task
 
-## ACTIONS (execute in order)
+You are generating a JSON-formatted newsletter. Your response MUST be pure JSON with no other text.
 
-Today's date: determine from system clock (format YYYY-MM-DD).
+## Required JSON Structure
 
-1. Search the web thoroughly for all sections in the topic brief above.
+Respond with this exact structure filled in (single object, no array, no markdown):
+```
+{"raw_markdown": "...", "html": "...", "top_story_summary": "..."}
+```
 
-2. Compile newsletter content.
+## Required Fields
 
-3. Save raw markdown to:
-   `~/newsletters/topics/{SLUG}/YYYY-MM-DD.md`
-   (replace YYYY-MM-DD with today's date)
+**raw_markdown**: Complete newsletter content as markdown string
+- Include headline, all sections from topic brief above
+- Use markdown formatting (headers, lists, links)
+- Include source URLs where applicable
 
-4. Read the template:
-   `~/newsletters/topics/{SLUG}/site/template.html`
+**html**: Complete HTML document as a string
+- Start with the template below and fill all {{PLACEHOLDER}} markers
+- Return as single string, do NOT wrap in code fences
+- Ensure valid HTML and proper escaping
 
-5. Fill all {{PLACEHOLDERS}} with compiled content following the design guide above.
-   Save generated HTML to:
-   `~/newsletters/topics/{SLUG}/site/index.html`
+**top_story_summary**: One sentence string
+- Summarize the most important story from this issue
+- Example: "Google released Gemini 2.0 Ultra."
 
-6. Save dated archive copy:
-   `cp ~/newsletters/topics/{SLUG}/site/index.html ~/newsletters/topics/{SLUG}/site/YYYY-MM-DD.html`
+## The Template
 
-7. Build portal:
-   `cd ~/newsletters && uv run shared/build.py`
+{{TEMPLATE_CONTENT}}
 
-8. Send one Telegram message to chat_id 1538018072:
-   Link: `http://100.110.249.12:8787/{SLUG}/`
-   Include: today's date, 1-sentence summary of top story.
+## Your Task
 
-9. Exit — do not start or restart the HTTP server (handled by run.sh).
+Replace the placeholders in the template above with compiled newsletter content from the topic brief. Return ONLY the JSON object—no explanations, no code blocks, nothing else.

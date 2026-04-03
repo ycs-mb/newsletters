@@ -66,4 +66,5 @@ nohup claude -p "$(cat $REPO/shared/prompts/on-demand-listener.md)" \
   --dangerously-skip-permissions --max-turns 200 \
   > /tmp/newsletter-listener.log 2>&1 &
 
+
 echo "$(date): portal built and served" >> "$REPO/log.txt"

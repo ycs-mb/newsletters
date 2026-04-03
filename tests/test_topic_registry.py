@@ -139,6 +139,25 @@ class RegistryTest(unittest.TestCase):
         self.assertIn("alpha", result)
         self.assertNotIn("beta", result)
 
+    def test_ensure_registry_exists(self):
+        # Registry file doesn't exist yet
+        self.assertFalse(topic_registry._REGISTRY_PATH.exists())
+        topic_registry._ensure_registry_exists()
+        # Should be created
+        self.assertTrue(topic_registry._REGISTRY_PATH.exists())
+        # Should be valid empty JSON
+        self.assertEqual(topic_registry.list_all(), {})
+
+    def test_ensure_registry_exists_idempotent(self):
+        # Create it once
+        topic_registry._ensure_registry_exists()
+        self.assertTrue(topic_registry._REGISTRY_PATH.exists())
+        # Save something
+        topic_registry.save("alpha", {"name": "Alpha"})
+        # Ensure again (should not overwrite)
+        topic_registry._ensure_registry_exists()
+        self.assertIn("alpha", topic_registry.list_all())
+
 
 if __name__ == "__main__":
     unittest.main()

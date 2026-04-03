@@ -1,9 +1,11 @@
 # server/routers/topics.py
 """Topic CRUD router — backed by shared.topic_registry (topics.json)."""
+import json
 import re
 import shutil
 from pathlib import Path
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from server import jobs
 from shared.topic_registry import (
@@ -148,6 +150,67 @@ async def get_topic_md(slug: str) -> dict:
     if not topic_md_path.exists():
         raise HTTPException(status_code=404, detail=f"No topic.md for '{slug}'")
     return {"slug": slug, "content": topic_md_path.read_text()}
+
+
+class TopicMdGenerateRequest(BaseModel):
+    name:        str
+    description: str = ""
+    focus_areas: str = ""
+    slug:        str = ""
+
+
+@router.post("/generate-topic-md")
+async def stream_generate_topic_md(payload: TopicMdGenerateRequest) -> StreamingResponse:
+    """Stream topic.md generation token-by-token via SSE.
+
+    Accepts topic metadata, streams OpenRouter tokens as SSE `data:` events,
+    then writes the completed topic.md to disk and emits a final `data: [DONE]`
+    event. The slug must belong to an already-registered topic.
+
+    SSE event format:
+        data: <token text>\\n\\n
+        data: [DONE]\\n\\n         (on completion — topic.md written)
+        data: [ERROR] <msg>\\n\\n  (on failure)
+    """
+    slug = payload.slug or _slugify(payload.name)
+
+    from shared.topic_md_generation import _build_topic_md_prompt
+
+    prompt = _build_topic_md_prompt(
+        payload.name,
+        payload.description,
+        payload.focus_areas,
+        slug,
+    )
+
+    def event_stream():
+        from shared.openrouter_client import chat_completion_stream
+        accumulated: list[str] = []
+        try:
+            for token in chat_completion_stream(prompt):
+                accumulated.append(token)
+                # Escape newlines so each SSE message stays on one data: line
+                safe = token.replace("\n", "\\n")
+                yield f"data: {safe}\n\n"
+        except Exception as exc:
+            yield f"data: [ERROR] {exc}\n\n"
+            return
+
+        # Write topic.md to disk
+        topic_dir = REPO_ROOT / "topics" / slug
+        topic_dir.mkdir(parents=True, exist_ok=True)
+        (topic_dir / "topic.md").write_text("".join(accumulated))
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering if proxied
+        },
+    )
 
 
 @router.delete("/{slug}")
