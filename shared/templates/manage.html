@@ -673,7 +673,213 @@
   .form-actions { grid-column: 1; }
   .topic-desc-cell { display: none; }
   .topic-table thead th:nth-child(2) { display: none; }
+  .agent-bar { flex-wrap: wrap; }
+  .agent-btns { flex-wrap: wrap; }
 }
+
+/* ── Agent Selector Bar ──────────────────────────────────────── */
+.agent-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.agent-bar-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.agent-btns {
+  display: flex;
+  border: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.agent-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border: none;
+  border-right: 1px solid var(--rule-light);
+  background: transparent;
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-btn:last-child { border-right: none; }
+
+.agent-btn:hover:not(.active) {
+  background: rgba(32, 26, 18, 0.05);
+  color: var(--ink);
+}
+
+.agent-btn.active              { background: var(--ink);        color: var(--paper); }
+.agent-btn.active.a-claude     { background: var(--terracotta); color: #fff; }
+.agent-btn.active.a-gemini     { background: var(--prussian);   color: #fff; }
+.agent-btn.active.a-copilot    { background: var(--sage);       color: #fff; }
+.agent-btn.active.a-opencode   { background: var(--gold);       color: #fff; }
+.agent-btn.active.a-openrouter { background: var(--ink);        color: var(--paper); }
+
+.agent-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+/* ── View topic.md Button ────────────────────────────────────── */
+.btn-view-md {
+  color: var(--terracotta);
+  border-color: rgba(196, 75, 26, 0.25);
+}
+.btn-view-md:hover:not(:disabled) {
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff;
+}
+
+/* ── topic.md Viewer Modal ───────────────────────────────────── */
+.topicmd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(32, 26, 18, 0.55);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.2s ease;
+}
+
+.topicmd-modal {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--terracotta);
+  width: 100%;
+  max-width: 800px;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(32, 26, 18, 0.22);
+  animation: dialogIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.topicmd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid var(--rule-light);
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.topicmd-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.topicmd-path {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.topicmd-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.topicmd-body {
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.topicmd-content {
+  margin: 0;
+  padding: 22px 26px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+}
+
+/* ── Model Selector (visible when OpenRouter agent is active) ── */
+.model-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: -20px;
+  margin-bottom: 28px;
+}
+
+.model-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-select {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 7px 28px 7px 12px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%234a4238' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.15s;
+  min-width: 260px;
+}
+
+.model-select:focus { border-color: var(--ink-mid); }
+
+.model-custom-input {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 7px 12px;
+  outline: none;
+  min-width: 240px;
+  transition: border-color 0.15s;
+}
+
+.model-custom-input::placeholder { color: var(--ink-faint); font-style: italic; }
+.model-custom-input:focus { border-color: var(--ink-mid); }
 </style>
 </head>
 <body class="newsroom-body">
@@ -722,6 +928,59 @@
     <div class="stat-cell">
       <div class="stat-number accent-prussian" id="stat-issues">—</div>
       <div class="stat-label">Total Issues</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ Agent Selector ═══════════ -->
+  <div class="agent-bar reveal">
+    <span class="agent-bar-label">Agent</span>
+    <div class="agent-btns" role="group" aria-label="Select generation agent">
+      <button class="agent-btn a-claude active" id="agent-btn-claude" onclick="setAgent('claude')">
+        <span class="agent-dot"></span>Claude
+      </button>
+      <button class="agent-btn a-gemini" id="agent-btn-gemini" onclick="setAgent('gemini')">
+        <span class="agent-dot"></span>Gemini
+      </button>
+      <button class="agent-btn a-copilot" id="agent-btn-copilot" onclick="setAgent('copilot')">
+        <span class="agent-dot"></span>Copilot
+      </button>
+      <button class="agent-btn a-opencode" id="agent-btn-opencode" onclick="setAgent('opencode')">
+        <span class="agent-dot"></span>OpenCode
+      </button>
+      <button class="agent-btn a-openrouter" id="agent-btn-openrouter" onclick="setAgent('openrouter')">
+        <span class="agent-dot"></span>OpenRouter
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════ Model Selector (OpenRouter) ═══════════ -->
+  <div class="model-bar" id="model-bar" style="display:none">
+    <span class="agent-bar-label">Model</span>
+    <div class="model-select-wrap">
+      <select class="model-select" id="model-select" onchange="onModelChange(this.value)">
+        <optgroup label="── Free">
+          <option value="stepfun/step-3.5-flash:free" selected>StepFun Step-3.5 Flash · free</option>
+          <option value="google/gemini-2.0-flash-exp:free">Google Gemini 2.0 Flash · free</option>
+          <option value="meta-llama/llama-3.1-8b-instruct:free">Meta Llama 3.1 8B · free</option>
+          <option value="deepseek/deepseek-chat:free">DeepSeek Chat · free</option>
+          <option value="mistralai/mistral-7b-instruct:free">Mistral 7B · free</option>
+        </optgroup>
+        <optgroup label="── Frontier">
+          <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+          <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+          <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
+          <option value="openai/gpt-4o">GPT-4o</option>
+          <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+        </optgroup>
+        <optgroup label="──">
+          <option value="custom">Custom model ID…</option>
+        </optgroup>
+      </select>
+      <input class="model-custom-input" id="model-custom" type="text"
+             placeholder="e.g. provider/model-name"
+             style="display:none"
+             oninput="selectedModel = this.value.trim() || 'stepfun/step-3.5-flash:free'">
     </div>
   </div>
 
@@ -828,6 +1087,25 @@
   </div>
 </footer>
 
+<!-- topic.md Viewer Modal -->
+<div class="topicmd-overlay" id="topicmd-overlay" style="display:none" onclick="closeTopicMdOverlay(event)">
+  <div class="topicmd-modal" id="topicmd-modal">
+    <div class="topicmd-header">
+      <div>
+        <div class="topicmd-title" id="topicmd-title">topic.md</div>
+        <div class="topicmd-path" id="topicmd-path"></div>
+      </div>
+      <div class="topicmd-header-actions">
+        <button class="btn btn-sm" id="topicmd-copy-btn" onclick="copyTopicMd()">Copy</button>
+        <button class="btn btn-sm" onclick="document.getElementById('topicmd-overlay').style.display='none'">Close ✕</button>
+      </div>
+    </div>
+    <div class="topicmd-body">
+      <pre class="topicmd-content" id="topicmd-content"></pre>
+    </div>
+  </div>
+</div>
+
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
 
@@ -844,6 +1122,79 @@ const API = '/api';
 // ── State ──
 let topics = {};
 let activeJobs = {};
+let selectedAgent = 'claude';
+let selectedModel = 'stepfun/step-3.5-flash:free';
+
+// ── Agent Selector ──
+function setAgent(agent) {
+  selectedAgent = agent;
+  document.querySelectorAll('.agent-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`agent-btn-${agent}`);
+  if (btn) btn.classList.add('active');
+  // Show model picker only for OpenRouter
+  const modelBar = document.getElementById('model-bar');
+  if (modelBar) modelBar.style.display = agent === 'openrouter' ? 'flex' : 'none';
+}
+
+// ── Model Selector (OpenRouter) ──
+function onModelChange(value) {
+  const customInput = document.getElementById('model-custom');
+  if (value === 'custom') {
+    customInput.style.display = '';
+    customInput.focus();
+    selectedModel = customInput.value.trim() || 'stepfun/step-3.5-flash:free';
+  } else {
+    customInput.style.display = 'none';
+    selectedModel = value;
+  }
+}
+
+// ── topic.md Viewer ──
+async function viewTopicMd(slug) {
+  const overlay   = document.getElementById('topicmd-overlay');
+  const modal     = document.getElementById('topicmd-modal');
+  const titleEl   = document.getElementById('topicmd-title');
+  const pathEl    = document.getElementById('topicmd-path');
+  const contentEl = document.getElementById('topicmd-content');
+
+  // Match left border to topic accent colour
+  const accentMap = { terracotta: '#c44b1a', sage: '#2d6b42', prussian: '#1a3552', gold: '#9a7b1a' };
+  const t = topics[slug];
+  modal.style.borderLeftColor = (t && accentMap[t.accent]) || '#c44b1a';
+
+  titleEl.textContent   = `${slug} — topic.md`;
+  pathEl.textContent    = `topics/${slug}/topic.md`;
+  contentEl.textContent = 'Loading…';
+  overlay.style.display = 'flex';
+
+  try {
+    const res  = await fetch(`${API}/topics/${slug}/topic-md`);
+    const data = await res.json();
+    if (!res.ok) {
+      contentEl.textContent = `Error ${res.status}: ${data.detail || res.statusText}`;
+      return;
+    }
+    contentEl.textContent = data.content;
+  } catch (err) {
+    contentEl.textContent = `Network error: ${err.message}`;
+  }
+}
+
+function closeTopicMdOverlay(e) {
+  if (e.target === document.getElementById('topicmd-overlay')) {
+    document.getElementById('topicmd-overlay').style.display = 'none';
+  }
+}
+
+async function copyTopicMd() {
+  const text = document.getElementById('topicmd-content').textContent;
+  const btn  = document.getElementById('topicmd-copy-btn');
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
+  } catch (_) {}
+}
 
 // ── Toast Notifications ──
 function toast(message, type = 'info', duration = 4000) {
@@ -974,6 +1325,7 @@ function renderTopics() {
         <td>
           <div class="topic-actions">
             <button class="btn btn-sm btn-primary" onclick="generateNewsletter('${slug}')" ${genDisabled} title="${genTitle}">Generate</button>
+            ${t.has_topic_md ? `<button class="btn btn-sm btn-view-md" onclick="viewTopicMd('${slug}')" title="View topic.md">topic.md</button>` : ''}
             <button class="btn btn-sm" onclick="viewTopic('${slug}')" title="View in portal">View</button>
             <button class="btn btn-sm btn-danger" onclick="deleteTopic('${slug}')" title="Remove from registry">✕</button>
           </div>
@@ -989,7 +1341,9 @@ function renderTopics() {
 async function generateNewsletter(slug) {
   const t = toast(`Dispatching newsletter for ${slug}…`, 'info', 0);
   try {
-    const res = await fetch(`${API}/topics/${slug}/newsletter`, { method: 'POST' });
+    const params = new URLSearchParams({ agent: selectedAgent });
+    if (selectedAgent === 'openrouter') params.set('model', selectedModel);
+    const res = await fetch(`${API}/topics/${slug}/newsletter?${params}`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
       t.remove();
@@ -997,7 +1351,10 @@ async function generateNewsletter(slug) {
       return;
     }
     t.remove();
-    toast(`Job ${data.job_id} started for ${slug}`, 'success');
+    const agentLabel = (data.agent === 'openrouter' && data.model)
+      ? `OpenRouter · ${data.model}`
+      : (data.agent || selectedAgent);
+    toast(`Job ${data.job_id} started for ${slug} via ${agentLabel}`, 'success');
     pollJob(data.job_id, slug);
   } catch (e) {
     t.remove();
@@ -1263,6 +1620,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { threshold: 0.08, rootMargin: '0px 0px -24px 0px' });
 
   document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
+
+  // Close topic.md modal on ESC
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('topicmd-overlay').style.display = 'none';
+  });
 
   // Initial load
   fetchTopics();

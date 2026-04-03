@@ -97,11 +97,13 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
-def _newsletter_generation_job(job_id: str, slug: str) -> None:
+def _newsletter_generation_job(job_id: str, slug: str, agent: str = "openrouter", model: str | None = None) -> None:
     """Generate a newsletter for an existing topic that has topic.md.
 
-    This is the decoupled generation path: the topic must already be
-    registered and have topic.md on disk.
+    Args:
+        agent: 'openrouter' (default) or one of the CLI agents:
+               'claude', 'gemini', 'copilot', 'opencode'.
+        model: OpenRouter model ID (only used when agent='openrouter').
     """
     try:
         topic_dir = REPO_ROOT / "topics" / slug
@@ -114,8 +116,14 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
         if not prompt_path.exists():
             raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
 
-        _update(job_id, "Running newsletter generation…")
-        generate_newsletter_issue(slug)
+        if agent == "openrouter":
+            _update(job_id, "Running newsletter generation (OpenRouter)…")
+            generate_newsletter_issue(slug, model=model)
+        else:
+            from shared.cli_newsletter_generation import generate_with_cli, _AGENT_LABELS
+            label = _AGENT_LABELS.get(agent, agent)
+            _update(job_id, f"Running newsletter generation ({label})…")
+            generate_with_cli(slug, agent)
 
         _update(job_id, "Generating NotebookLM media…")
         try:
@@ -188,6 +196,6 @@ def submit_topic_md_generation(job_id: str, slug: str, payload: "TopicCreate") -
     _executor.submit(_topic_md_generation_job, job_id, slug, payload)
 
 
-def submit_newsletter_generation(job_id: str, slug: str) -> None:
+def submit_newsletter_generation(job_id: str, slug: str, agent: str = "openrouter", model: str | None = None) -> None:
     """Submit newsletter generation for an existing topic with topic.md."""
-    _executor.submit(_newsletter_generation_job, job_id, slug)
+    _executor.submit(_newsletter_generation_job, job_id, slug, agent, model)

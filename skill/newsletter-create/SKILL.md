@@ -101,10 +101,10 @@ This combines `topic.md` + `shared/prompts/design-guide.md` + `shared/prompts/op
 
 Show the user:
 - Path to `topic.md` and assembled `prompt.md`
-- How to run it:
+- How to run it, either through the manage UI at `http://localhost:9000/manage.html`
+  or directly with the default OpenRouter-backed helper:
   ```bash
-  claude -p "$(cat ~/newsletters/topics/{TOPIC_SLUG}/prompt.md)" \
-    --dangerously-skip-permissions
+  uv run python -c "from shared.newsletter_generation import generate_newsletter_issue; generate_newsletter_issue('{TOPIC_SLUG}')"
   ```
 - The portal URL after build: `http://100.110.249.12:8787/{TOPIC_SLUG}/`
 
