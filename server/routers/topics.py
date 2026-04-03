@@ -36,52 +36,6 @@ def _slugify(name: str) -> str:
     return slug[:40]
 
 
-def _generate_topic_md(name: str, description: str, focus_areas: str, signal_label: str) -> str:
-    """Build a topic.md from form data. No Claude CLI required."""
-    lines = [
-        f"# {name} — Topic Brief",
-        "",
-        "## Identity",
-        f"- Role: newsletter curator covering {description or name}",
-        f"- Audience: practitioners and researchers following {name}",
-        f"- Signal label: {signal_label} (1–5, where 5 = major breakthrough or milestone)",
-        "",
-        "## Focus Areas & Sources",
-        "",
-    ]
-    if focus_areas.strip():
-        lines.append(focus_areas.strip())
-    else:
-        lines.append(f"- Latest developments in {name}")
-        lines.append("- Academic and industry publications")
-        lines.append("- Community discussion and expert commentary")
-    lines += [
-        "",
-        "## Sections",
-        "",
-        "### Section 01: Breaking News & Major Developments (past 24 hours)",
-        f"Top stories in {name}. Lead with the most significant event.",
-        "Aim for 4–6 cards. Categories: `voice` (people/opinion), `model` (tech/products), `company` (org news), `promo` (partnerships).",
-        "",
-        "### Section 02: Research & Papers (past 7 days)",
-        "Peer-reviewed papers, preprints, and technical reports.",
-        "Include: title, authors/institution, key finding, significance. Aim for 3–5 items.",
-        "",
-        "### Section 03: Industry & Ecosystem (past 7 days)",
-        "Company announcements, product launches, funding rounds, open-source releases.",
-        "Aim for 4–6 items.",
-        "",
-        "### Section 04: Community & Commentary (past 24 hours)",
-        "Top forum posts, notable expert commentary, social media highlights.",
-        "Include: source, engagement level, 1-sentence summary.",
-        "",
-        "### Section 05: Tip of the Day",
-        f"One practical, actionable insight or resource for someone following {name}.",
-        "Prefer non-obvious or timely observations.",
-    ]
-    return "\n".join(lines) + "\n"
-
-
 def _scaffold_topic(slug: str) -> Path:
     """Create topic folder structure. Returns the topic directory."""
     topic_dir = REPO_ROOT / "topics" / slug
@@ -132,7 +86,7 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
     1. Immediately registers in topics.json and scaffolds the folder.
     2. If topic_md is provided, writes it to disk — topic is immediately ready.
     3. If topic_md is absent but description/focus_areas are given, launches
-       a background Claude CLI job to generate a proper topic.md.
+       a background OpenRouter job to generate a proper topic.md.
     4. Otherwise, topic is registered but not ready — user must provide topic.md.
     """
     slug = _slugify(payload.name)
@@ -159,13 +113,13 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
         result["topic_md_written"] = True
         result["ready"] = True
     elif payload.focus_areas.strip() or payload.description.strip():
-        # Launch Claude CLI in background to generate a proper topic.md
+        # Launch OpenRouter job in background to generate a proper topic.md
         job_id = jobs.create()
         from server.pipeline import submit_topic_md_generation
         background_tasks.add_task(submit_topic_md_generation, job_id, slug, payload)
         result["job_id"] = job_id
         result["ready"] = False
-        result["message"] = "Claude is generating topic.md — poll /api/jobs/{job_id} for status."
+        result["message"] = "OpenRouter is generating topic.md — poll /api/jobs/{job_id} for status."
     else:
         result["ready"] = False
         result["message"] = "Topic registered. Provide topic.md via PUT /api/topics/{slug}/topic-md to make it ready."
