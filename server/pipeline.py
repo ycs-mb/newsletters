@@ -29,8 +29,6 @@ def _update(job_id: str, step: str, status: JobStatus = JobStatus.running) -> No
     jobs.update(job_id, step=step, status=status)
 
 
-
-
 def _build_portal() -> None:
     """Run the static site builder."""
     subprocess.run(["uv", "run", "shared/build.py"], cwd=REPO_ROOT, check=True)
@@ -42,6 +40,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
 
     try:
         _update(job_id, "Scaffolding topic folder…")
+        jobs.append_log(job_id, f"📁 Creating topics/{slug} structure")
         topic_dir = REPO_ROOT / "topics" / slug
         (topic_dir / "site").mkdir(parents=True, exist_ok=True)
         (topic_dir / "media").mkdir(exist_ok=True)
@@ -51,10 +50,13 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         css_src  = REPO_ROOT / "shared" / "assets" / "style.css"
         if tmpl_src.exists():
             shutil.copy2(tmpl_src, topic_dir / "site" / "template.html")
+            jobs.append_log(job_id, "📄 Copied template.html")
         if css_src.exists():
             shutil.copy2(css_src, topic_dir / "site" / "style.css")
+            jobs.append_log(job_id, "🎨 Copied style.css")
 
         _update(job_id, "Generating topic.md…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for topic.md content...")
         topic_md_content = generate_topic_md(
             payload.name,
             payload.description,
@@ -63,6 +65,7 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
         )
         topic_md = topic_dir / "topic.md"
         topic_md.write_text(topic_md_content)
+        jobs.append_log(job_id, f"✍ Written: topics/{slug}/topic.md")
 
         # Register in topics.json (replaces _append_topic_toml)
         registry_save(slug, {
@@ -71,29 +74,38 @@ def _create_topic_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
             "accent": payload.accent,
             "signal_label": payload.signal_label,
         })
+        jobs.append_log(job_id, f"✅ Registered {slug} in topics.json")
 
         _update(job_id, "Assembling prompt…")
         from shared.assemble_prompt import assemble
         assemble(slug)
+        jobs.append_log(job_id, f"🔗 Assembled: topics/{slug}/prompt.md")
 
         _update(job_id, "Running first newsletter issue…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for newsletter generation...")
         generate_newsletter_issue(slug)
+        jobs.append_log(job_id, "✅ Newsletter issue generated")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
+            jobs.append_log(job_id, "🎙 Checking for NotebookLM media...")
             from shared.notebooklm_runner import generate_issue_media
             today = datetime.now().strftime("%Y-%m-%d")
             generate_issue_media(slug, today)
         except Exception as nlm_err:
             import logging
             logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
+            jobs.append_log(job_id, "⚠️ NotebookLM media skipped")
 
         _update(job_id, "Building portal…")
+        jobs.append_log(job_id, "🛠 Running shared/build.py...")
         _build_portal()
+        jobs.append_log(job_id, "🌐 Portal build complete")
 
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -107,6 +119,7 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
         topic_dir = REPO_ROOT / "topics" / slug
 
         _update(job_id, "Assembling prompt…")
+        jobs.append_log(job_id, f"🔗 Assembling prompt for {slug}...")
         from shared.assemble_prompt import assemble
         assemble(slug)
 
@@ -115,23 +128,30 @@ def _newsletter_generation_job(job_id: str, slug: str) -> None:
             raise RuntimeError(f"Prompt assembly failed — no topics/{slug}/prompt.md")
 
         _update(job_id, "Running newsletter generation…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for newsletter generation...")
         generate_newsletter_issue(slug)
+        jobs.append_log(job_id, "✅ Newsletter issue generated")
 
         _update(job_id, "Generating NotebookLM media…")
         try:
+            jobs.append_log(job_id, "🎙 Checking for NotebookLM media...")
             from shared.notebooklm_runner import generate_issue_media
             today = datetime.now().strftime("%Y-%m-%d")
             generate_issue_media(slug, today)
         except Exception as nlm_err:
             import logging
             logging.getLogger(__name__).warning("NotebookLM skipped: %s", nlm_err)
+            jobs.append_log(job_id, "⚠️ NotebookLM media skipped")
 
         _update(job_id, "Building portal…")
+        jobs.append_log(job_id, "🛠 Running shared/build.py...")
         _build_portal()
+        jobs.append_log(job_id, "🌐 Portal build complete")
 
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -139,12 +159,15 @@ def _media_generation_job(job_id: str, slug: str, date: str, artifact_type: str)
     """Generate one on-demand media artifact (podcast or video). Runs in thread pool."""
     try:
         jobs.update(job_id, step=f"Setting up NotebookLM notebook…", status=JobStatus.running)
+        jobs.append_log(job_id, f"🎙 Setting up NotebookLM for {slug} ({date})...")
         from shared.notebooklm_runner import start_on_demand_artifact, wait_and_download_on_demand
         notebook_id, task_id = start_on_demand_artifact(slug, date, artifact_type)
 
         label = "podcast" if artifact_type == "podcast" else "video"
         jobs.update(job_id, step=f"Generating {label} (this takes 10–45 min)…")
+        jobs.append_log(job_id, f"⏳ Generating {label} (polling task {task_id})...")
         rel_path = wait_and_download_on_demand(slug, date, artifact_type, notebook_id, task_id)
+        jobs.append_log(job_id, f"✅ {label.capitalize()} downloaded: {rel_path}")
 
         jobs.update(job_id, step="Building portal…")
         subprocess.run(["uv", "run", "shared/build.py"], cwd=REPO_ROOT, check=True)
@@ -153,6 +176,7 @@ def _media_generation_job(job_id: str, slug: str, date: str, artifact_type: str)
         jobs.update(job_id, step="Done ✓", status=JobStatus.done, artifact_url=artifact_url)
 
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 
@@ -167,9 +191,10 @@ def submit_topic_creation(job_id: str, slug: str, payload: "TopicCreate") -> Non
 
 
 def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> None:
-    """Generate topic.md for an already-registered topic. Best-effort."""
+    """Generate topic.md for an already-registered topic via OpenRouter."""
     try:
-        _update(job_id, "Generating topic.md…")
+        _update(job_id, "Generating topic.md via OpenRouter…")
+        jobs.append_log(job_id, "🤖 Calling OpenRouter for topic.md content...")
         topic_md_content = generate_topic_md(
             payload.name,
             payload.description,
@@ -178,8 +203,10 @@ def _topic_md_generation_job(job_id: str, slug: str, payload: "TopicCreate") -> 
         )
         topic_md = REPO_ROOT / "topics" / slug / "topic.md"
         topic_md.write_text(topic_md_content)
+        jobs.append_log(job_id, f"✍ Written: topics/{slug}/topic.md")
         jobs.update(job_id, step="Done ✓", status=JobStatus.done)
     except Exception as e:
+        jobs.append_log(job_id, f"❌ Error: {str(e)}")
         jobs.update(job_id, status=JobStatus.failed, error=str(e))
 
 

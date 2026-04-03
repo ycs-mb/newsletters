@@ -5,6 +5,9 @@
 # Assembled prompt artifacts — never commit
 topics/*/prompt.md
 
+# Build output
+dist/
+
 # Server logs
 /tmp/newsletter-*.log
 
@@ -14,3 +17,4 @@ topics/*/prompt.md
 .venv/
 **/__pycache__
 **/media/
+.gstack/

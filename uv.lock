@@ -192,12 +192,20 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "httpx" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.111" },
     { name = "notebooklm-py", specifier = ">=0.3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "httpx", specifier = ">=0.28.1" }]
 
 [[package]]
 name = "notebooklm-py"

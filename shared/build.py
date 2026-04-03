@@ -352,17 +352,21 @@ def build_landing(config: dict, topic_metas: dict, archive_count: int = 0) -> st
     template = (TEMPLATES_DIR / "landing.html").read_text()
 
     cards_html = ""
+    built_topic_count = 0
     for slug, topic in config.items():
+        if slug not in topic_metas:
+            continue
         meta = topic_metas.get(slug, {})
         cards_html += render_topic_card(slug, topic, meta)
+        built_topic_count += 1
 
     today = datetime.now().strftime("%A, %B %d, %Y")
-    colophon = f"{len(config)} briefings &middot; {datetime.now().strftime('%B %d, %Y')}"
+    colophon = f"{built_topic_count} briefings &middot; {datetime.now().strftime('%B %d, %Y')}"
 
     return (
         template
         .replace("{{DATE_LONG}}", today)
-        .replace("{{TOPIC_COUNT}}", str(len(config)))
+        .replace("{{TOPIC_COUNT}}", str(built_topic_count))
         .replace("{{ARCHIVE_COUNT}}", str(archive_count))
         .replace("{{TOPIC_CARDS}}", cards_html)
         .replace("{{FOOTER_COLOPHON}}", colophon)

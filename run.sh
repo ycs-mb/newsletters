@@ -34,11 +34,10 @@ for slug in $SLUGS; do
   echo "--- Assembling prompt for $slug ---"
   uv run "$REPO/shared/assemble_prompt.py" "$slug" || { echo "ERROR: assemble $slug failed"; continue; }
 
-  echo "--- Generating newsletter for $slug (OpenRouter) ---"
-  uv run python -c "
-from shared.newsletter_generation import generate_newsletter_issue
-generate_newsletter_issue('$slug')
-"
+  echo "--- Generating newsletter for $slug ---"
+  claude -p "$(cat $REPO/topics/$slug/prompt.md)" \
+    --channels plugin:telegram@claude-plugins-official \
+    --dangerously-skip-permissions --max-turns 25
 done
 
 # --- Generate NotebookLM media (non-fatal) ---
@@ -59,5 +58,13 @@ cd "$REPO" && uv run shared/build.py
 lsof -ti:8787 | xargs kill 2>/dev/null
 sleep 1
 nohup uv run --directory "$REPO" -m server.main > /tmp/newsletter-server.log 2>&1 &
+
+# --- On-demand Telegram listener ---
+lsof -ti:0 -c claude 2>/dev/null | xargs kill 2>/dev/null || true
+nohup claude -p "$(cat $REPO/shared/prompts/on-demand-listener.md)" \
+  --channels plugin:telegram@claude-plugins-official \
+  --dangerously-skip-permissions --max-turns 200 \
+  > /tmp/newsletter-listener.log 2>&1 &
+
 
 echo "$(date): portal built and served" >> "$REPO/log.txt"

@@ -20,7 +20,8 @@ cd dist && python3 -m http.server 8787
 
 # Run a single newsletter (e.g., Google AI only)
 claude -p "$(cat topics/google-ai/prompt.md)" \
-  --dangerously-skip-permissions
+  --channels plugin:telegram@claude-plugins-official \
+  --dangerously-skip-permissions --max-turns 25
 
 # Run tests
 uv run pytest

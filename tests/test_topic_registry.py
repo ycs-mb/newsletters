@@ -87,6 +87,16 @@ class RegistryTest(unittest.TestCase):
         self.assertTrue(status["has_topic_md"])
         self.assertFalse(status["has_prompt_md"])
         self.assertTrue(status["ready"])
+        self.assertEqual(status["issue_count"], 0)
+
+    def test_issue_count(self):
+        topic_registry.save("alpha", {"name": "Alpha"})
+        self.assertEqual(topic_registry.count_issues("alpha"), 0)
+        # Write some dated .md files
+        (self.root / "topics" / "alpha" / "2026-01-01.md").write_text("# Jan")
+        (self.root / "topics" / "alpha" / "2026-01-02.md").write_text("# Feb")
+        self.assertEqual(topic_registry.count_issues("alpha"), 2)
+        self.assertEqual(topic_registry.get_status("alpha")["issue_count"], 2)
 
     def test_concurrent_saves(self):
         errors = []
