@@ -218,11 +218,21 @@ async def delete_topic(slug: str) -> dict:
 
 
 @router.post("/{slug}/newsletter")
-async def generate_newsletter(slug: str, background_tasks: BackgroundTasks) -> dict:
+async def generate_newsletter(
+    slug: str,
+    background_tasks: BackgroundTasks,
+    agent: str = "openrouter",
+    model: str = "",
+) -> dict:
     """Request newsletter generation for a topic.
 
     Requires topic.md to exist — the app will NOT generate a newsletter
     for a topic that has no research prompt source.
+
+    Query params:
+        agent: 'openrouter' (default) | 'claude' | 'gemini' | 'copilot' | 'opencode'
+        model: OpenRouter model ID (only used when agent='openrouter').
+               Defaults to OPENROUTER_MODEL_NEWSLETTER env var.
     """
     entry = registry_get(slug)
     if entry is None:
@@ -232,7 +242,12 @@ async def generate_newsletter(slug: str, background_tasks: BackgroundTasks) -> d
             status_code=409,
             detail=f"Topic '{slug}' is not ready: topics/{slug}/topic.md must exist",
         )
+
+    valid_agents = {"openrouter", "claude", "gemini", "copilot", "opencode"}
+    if agent not in valid_agents:
+        raise HTTPException(status_code=400, detail=f"Invalid agent '{agent}'. Valid: {sorted(valid_agents)}")
+
     from server.pipeline import submit_newsletter_generation
     job_id = jobs.create()
-    background_tasks.add_task(submit_newsletter_generation, job_id, slug)
-    return {"job_id": job_id, "slug": slug}
+    background_tasks.add_task(submit_newsletter_generation, job_id, slug, agent, model or None)
+    return {"job_id": job_id, "slug": slug, "agent": agent, "model": model or None}

@@ -2,9 +2,12 @@
 
 Date: 2026-04-01
 
+> Historical migration plan. It documents the intended OpenRouter cutover and
+> is kept for reference after the implementation landed.
+
 ## Goal
 
-Replace all Claude CLI and Anthropic-hosted AI invocation paths in this repository with explicit OpenRouter API calls, while preserving the current prompt content and newsletter outputs as closely as possible.
+Replace all Claude CLI and Anthropic-hosted AI invocation paths in this repository with explicit OpenRouter API calls, while preserving the then-current prompt content and newsletter outputs as closely as possible.
 
 ## Non-Goal
 
@@ -12,7 +15,7 @@ This document does not implement the migration. It defines the exact file-by-fil
 
 ## Key Constraint
 
-The current system does not just "ask a model for text." It asks Claude Code to:
+The system described in this plan did not just "ask a model for text." It asked Claude Code to:
 
 1. search the web
 2. read local files
