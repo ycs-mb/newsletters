@@ -1631,7 +1631,7 @@ function pollJob(jobId, slug) {
   let toastEl = toast(`${slug}: starting…`, 'info', 0);
   const interval = setInterval(async () => {
     try {
-        const res = await fetch(apiUrl(`/jobs/${jobId}`));
+      const res = await fetch(apiUrl(`/jobs/${jobId}`));
       const data = await res.json();
       if (data.status === 'done') {
         clearInterval(interval);
@@ -1655,7 +1655,7 @@ function pollTopicMdJob(jobId, slug, name) {
   fetchTopics();
   const interval = setInterval(async () => {
     try {
-        const res = await fetch(apiUrl(`/jobs/${jobId}`));
+      const res = await fetch(apiUrl(`/jobs/${jobId}`));
       const data = await res.json();
       if (data.status === 'done') {
         clearInterval(interval);
