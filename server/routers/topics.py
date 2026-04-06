@@ -11,6 +11,7 @@ from server import jobs
 from shared.topic_registry import (
     list_all, get as registry_get, save as registry_save,
     delete as registry_delete, get_status, is_ready, exists as registry_exists,
+    count_issues,
 )
 
 router    = APIRouter()
@@ -65,8 +66,10 @@ async def list_topics() -> dict:
             "signal_label": t.get("signal_label", "Signal"),
             "ready":        status["ready"],
             "has_topic_md": status["has_topic_md"],
+            "issue_count":  status["issue_count"],
         }
-    return {"topics": topics, "count": len(config)}
+    total_issues = sum(t["issue_count"] for t in topics.values())
+    return {"topics": topics, "count": len(config), "total_issues": total_issues}
 
 
 @router.get("/{slug}")
@@ -83,9 +86,9 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
     """Create a new topic.
 
     1. Immediately registers in topics.json and scaffolds the folder.
-    2. If topic_md content is provided, writes it to disk (topic is ready).
-    3. If topic_md is empty and focus_areas is given, kicks off a background
-       job to generate topic.md via Claude CLI (best-effort).
+    2. If topic_md is provided, writes it to disk — topic is immediately ready.
+    3. If topic_md is absent but description/focus_areas are given, launches
+       a background OpenRouter job to generate a proper topic.md.
     4. Otherwise, topic is registered but not ready — user must provide topic.md.
     """
     slug = _slugify(payload.name)
@@ -107,17 +110,18 @@ async def create_topic(payload: TopicCreate, background_tasks: BackgroundTasks) 
     result: dict = {"slug": slug, "registered": True}
 
     if payload.topic_md.strip():
-        # User provided topic.md content directly
+        # User pasted topic.md directly — write it and mark ready immediately
         (topic_dir / "topic.md").write_text(payload.topic_md)
         result["topic_md_written"] = True
         result["ready"] = True
-    elif payload.focus_areas.strip():
-        # Attempt background generation via Claude
+    elif payload.focus_areas.strip() or payload.description.strip():
+        # Launch OpenRouter job in background to generate a proper topic.md
         job_id = jobs.create()
         from server.pipeline import submit_topic_md_generation
         background_tasks.add_task(submit_topic_md_generation, job_id, slug, payload)
         result["job_id"] = job_id
         result["ready"] = False
+        result["message"] = "OpenRouter is generating topic.md — poll /api/jobs/{job_id} for status."
     else:
         result["ready"] = False
         result["message"] = "Topic registered. Provide topic.md via PUT /api/topics/{slug}/topic-md to make it ready."
