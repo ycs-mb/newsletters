@@ -1,0 +1,74 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Select portal mode
+        env:
+          PORTAL_API_BASE_URL_INPUT: ${{ vars.PORTAL_API_BASE_URL }}
+        run: |
+          echo "PORTAL_API_BASE_URL=${PORTAL_API_BASE_URL_INPUT}" >> "$GITHUB_ENV"
+          if [ -n "${PORTAL_API_BASE_URL_INPUT}" ]; then
+            echo "PORTAL_MANAGEMENT_MODE=external" >> "$GITHUB_ENV"
+          else
+            echo "PORTAL_MANAGEMENT_MODE=static" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build static portal
+        run: uv run shared/build.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

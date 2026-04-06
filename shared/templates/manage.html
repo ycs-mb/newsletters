@@ -65,6 +65,34 @@
   margin-bottom: 32px;
 }
 
+.portal-status-banner {
+  display: none;
+  margin: 0 0 32px;
+  padding: 16px 18px;
+  border-left: 3px solid var(--gold);
+  background: rgba(154, 123, 26, 0.08);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.portal-status-banner.visible {
+  display: block;
+}
+
+.portal-status-banner strong {
+  font-weight: 600;
+}
+
+.newsroom-readonly .agent-btn,
+.newsroom-readonly .create-form button,
+.newsroom-readonly .create-form input,
+.newsroom-readonly .create-form select,
+.newsroom-readonly .create-form textarea {
+  cursor: not-allowed;
+}
+
 /* ── Section Headers ─────────────────────────────────────────── */
 .section-rule {
   display: flex;
@@ -1019,6 +1047,7 @@
       Register topics, monitor readiness, and dispatch newsletter generation.
       A topic must have <code style="font-family:var(--font-mono);font-size:12px;color:var(--terracotta);">topic.md</code> before it can produce a briefing.
     </p>
+    <div class="portal-status-banner" id="portal-status-banner"></div>
   </header>
 
   <!-- ═══════════ Stats ═══════════ -->
@@ -1239,7 +1268,37 @@
 // Newsroom — Topic Management Logic
 // ═══════════════════════════════════════════════════════════════════
 
-const API = '/api';
+const PORTAL_API_BASE_URL = '{{PORTAL_API_BASE_URL}}';
+const PORTAL_MANAGEMENT_MODE = '{{PORTAL_MANAGEMENT_MODE}}';
+const API = (PORTAL_API_BASE_URL || '/api').replace(/\/+$/, '');
+const READ_ONLY_MODE = PORTAL_MANAGEMENT_MODE === 'static';
+const READ_ONLY_MESSAGE = 'This GitHub Pages deploy is read-only. Connect an API backend with PORTAL_API_BASE_URL to enable topic management and generation.';
+
+function apiUrl(path) {
+  return `${API}${path}`;
+}
+
+function requireApi() {
+  if (!READ_ONLY_MODE) return true;
+  toast(READ_ONLY_MESSAGE, 'error', 7000);
+  return false;
+}
+
+function showReadOnlyState() {
+  document.body.classList.add('newsroom-readonly');
+  const banner = document.getElementById('portal-status-banner');
+  banner.innerHTML = `<strong>Read-only mode.</strong> ${READ_ONLY_MESSAGE}`;
+  banner.classList.add('visible');
+
+  document.querySelectorAll('.agent-btn, #create-form input, #create-form select, #create-form textarea, #create-form button')
+    .forEach(el => { el.disabled = true; });
+
+  document.getElementById('topic-list').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">ⓘ</div>
+      <div class="empty-state-text">Topic management is unavailable in the static GitHub Pages deploy.</div>
+    </div>`;
+}
 
 // ── State ──
 let topics = {};
@@ -1290,7 +1349,8 @@ async function viewTopicMd(slug) {
   overlay.style.display = 'flex';
 
   try {
-    const res  = await fetch(`${API}/topics/${slug}/topic-md`);
+    if (!requireApi()) return;
+    const res  = await fetch(apiUrl(`/topics/${slug}/topic-md`));
     const data = await res.json();
     if (!res.ok) {
       contentEl.textContent = `Error ${res.status}: ${data.detail || res.statusText}`;
@@ -1367,8 +1427,8 @@ async function _pollDrawerLog() {
   if (!_drawerJobId) return;
   try {
     const [logRes, jobRes] = await Promise.all([
-      fetch(`${API}/jobs/${_drawerJobId}/log?from=${_drawerLogOffset}`),
-      fetch(`${API}/jobs/${_drawerJobId}`),
+      fetch(apiUrl(`/jobs/${_drawerJobId}/log?from=${_drawerLogOffset}`)),
+      fetch(apiUrl(`/jobs/${_drawerJobId}`)),
     ]);
     if (!logRes.ok) return;
     const logData = await logRes.json();
@@ -1442,7 +1502,7 @@ function confirm(title, message) {
 // ── Fetch Topics ──
 async function fetchTopics() {
   try {
-    const res = await fetch(`${API}/topics`);
+    const res = await fetch(apiUrl('/topics'));
     const data = await res.json();
     topics = data.topics || {};
     window._totalIssues = data.total_issues || 0;
@@ -1546,7 +1606,8 @@ async function generateNewsletter(slug) {
   try {
     const params = new URLSearchParams({ agent: selectedAgent });
     if (selectedAgent === 'openrouter') params.set('model', selectedModel);
-    const res = await fetch(`${API}/topics/${slug}/newsletter?${params}`, { method: 'POST' });
+    if (!requireApi()) return;
+    const res = await fetch(apiUrl(`/topics/${slug}/newsletter?${params}`), { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
       t.remove();
@@ -1570,7 +1631,7 @@ function pollJob(jobId, slug) {
   let toastEl = toast(`${slug}: starting…`, 'info', 0);
   const interval = setInterval(async () => {
     try {
-      const res = await fetch(`${API}/jobs/${jobId}`);
+      const res = await fetch(apiUrl(`/jobs/${jobId}`));
       const data = await res.json();
       if (data.status === 'done') {
         clearInterval(interval);
@@ -1594,7 +1655,7 @@ function pollTopicMdJob(jobId, slug, name) {
   fetchTopics();
   const interval = setInterval(async () => {
     try {
-      const res = await fetch(`${API}/jobs/${jobId}`);
+      const res = await fetch(apiUrl(`/jobs/${jobId}`));
       const data = await res.json();
       if (data.status === 'done') {
         clearInterval(interval);
@@ -1614,14 +1675,15 @@ function pollTopicMdJob(jobId, slug, name) {
 }
 
 function viewTopic(slug) {
-  window.open(`/${slug}/`, '_blank');
+  window.open(`./${slug}/`, '_blank');
 }
 
 async function deleteTopic(slug) {
+  if (!requireApi()) return;
   const ok = await confirm('Delete Topic', `Remove <strong>${slug}</strong> from the registry? This does not delete files on disk.`);
   if (!ok) return;
   try {
-    const res = await fetch(`${API}/topics/${slug}`, { method: 'DELETE' });
+    const res = await fetch(apiUrl(`/topics/${slug}`), { method: 'DELETE' });
     if (res.ok) {
       toast(`Removed ${slug}`, 'success');
       fetchTopics();
@@ -1684,7 +1746,8 @@ generateBtn.addEventListener('click', async () => {
   document.getElementById('create-btn').disabled = true;
 
   try {
-    const response = await fetch(`${API}/topics/generate-topic-md`, {
+    if (!requireApi()) return;
+    const response = await fetch(apiUrl('/topics/generate-topic-md'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, description, focus_areas: focusAreas, slug }),
@@ -1802,7 +1865,8 @@ form.addEventListener('submit', async (e) => {
   btn.textContent = 'Creating…';
 
   try {
-    const res = await fetch(`${API}/topics`, {
+    if (!requireApi()) return;
+    const res = await fetch(apiUrl('/topics'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -1857,6 +1921,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initial load
+  if (READ_ONLY_MODE) {
+    showReadOnlyState();
+    return;
+  }
   fetchTopics();
 });
 </script>
