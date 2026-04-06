@@ -6,7 +6,7 @@ from pathlib import Path
 from shared.openrouter_client import chat_completion
 
 
-def generate_newsletter_issue(slug: str, *, date: str | None = None) -> dict[str, str]:
+def generate_newsletter_issue(slug: str, *, date: str | None = None, model: str | None = None) -> dict[str, str]:
     """
     Generate a newsletter issue using OpenRouter.
 
@@ -16,6 +16,7 @@ def generate_newsletter_issue(slug: str, *, date: str | None = None) -> dict[str
     Args:
         slug: Topic slug (e.g., 'google-ai')
         date: Date string (YYYY-MM-DD). Defaults to today.
+        model: OpenRouter model ID. Defaults to OPENROUTER_MODEL_NEWSLETTER env var.
 
     Returns:
         Dict with keys: raw_markdown, html, top_story_summary
@@ -45,7 +46,7 @@ def generate_newsletter_issue(slug: str, *, date: str | None = None) -> dict[str
     full_prompt = prompt_text.replace("{{TEMPLATE_CONTENT}}", template_html)
 
     # Call OpenRouter
-    response_text = chat_completion(full_prompt)
+    response_text = chat_completion(full_prompt, model=model)
 
     # Parse JSON response (strip markdown fences defensively)
     response_text = response_text.strip()

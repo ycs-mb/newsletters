@@ -1,10 +1,13 @@
 # OpenRouter Migration Plan
 
+> Historical planning doc. It records the migration analysis that led to the
+> current implementation and may describe intermediate or superseded work.
+
 ## Executive Summary
 
-This repo does not currently use the Anthropic Python SDK directly. The live AI dependency is the `claude` CLI, plus one GitHub Action that uses `ANTHROPIC_API_KEY`. That means this migration is not a simple SDK transport swap.
+At the time this plan was written, the repo did not use the Anthropic Python SDK directly. The live AI dependency was the `claude` CLI, plus one GitHub Action that used `ANTHROPIC_API_KEY`. That meant the migration was not a simple SDK transport swap.
 
-The current pipeline depends on Claude Code behaving like a local agent: it reads prompt files, searches the web, writes `topic.md` / `YYYY-MM-DD.md` / `site/index.html`, copies archive files, and may trigger Telegram-oriented workflows. OpenRouter's OpenAI-compatible API can replace model inference, but it does not replace Claude Code's local tool execution by itself. The migration therefore needs two layers:
+The pipeline described here depended on Claude Code behaving like a local agent: it read prompt files, searched the web, wrote `topic.md` / `YYYY-MM-DD.md` / `site/index.html`, copied archive files, and may have triggered Telegram-oriented workflows. OpenRouter's OpenAI-compatible API can replace model inference, but it does not replace Claude Code's local tool execution by itself. The migration therefore needed two layers:
 
 1. Replace direct Claude/Anthropic entry points with a shared OpenRouter client.
 2. Move file I/O, build steps, and any Telegram delivery into explicit repo code instead of relying on agentic CLI behavior.
