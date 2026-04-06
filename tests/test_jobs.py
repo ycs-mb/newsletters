@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from server.jobs import create, update, get, JobStatus
+from server.jobs import create, update, get, append_log, JobStatus
 
 
 class JobStoreTest(unittest.TestCase):
@@ -78,6 +78,27 @@ class JobStoreTest(unittest.TestCase):
         for t in threads: t.start()
         for t in threads: t.join()
         self.assertEqual([], errors)
+
+
+    def test_job_has_empty_log_lines(self):
+        job_id = create()
+        self.assertEqual(get(job_id).log_lines, [])
+
+    def test_append_log_adds_lines(self):
+        job_id = create()
+        append_log(job_id, "🔍 Searching: quantum")
+        append_log(job_id, "✍ Writing: topic.md")
+        self.assertEqual(get(job_id).log_lines, ["🔍 Searching: quantum", "✍ Writing: topic.md"])
+
+    def test_append_log_unknown_job_is_noop(self):
+        append_log("does-not-exist", "line")  # must not raise
+
+    def test_append_log_concurrent(self):
+        job_id = create()
+        threads = [threading.Thread(target=append_log, args=(job_id, f"line-{i}")) for i in range(50)]
+        for t in threads: t.start()
+        for t in threads: t.join()
+        self.assertEqual(len(get(job_id).log_lines), 50)
 
 
 if __name__ == "__main__":

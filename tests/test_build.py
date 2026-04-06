@@ -71,6 +71,18 @@ class BuildLayoutTest(unittest.TestCase):
         html = landing_path.read_text()
         self.assertIn('href="archives/index.html"', html, "landing page should link to archive")
 
+    def test_landing_page_only_lists_built_topics(self) -> None:
+        """Verify the landing page does not link to topics skipped during build."""
+        landing_path = REPO_ROOT / "dist" / "index.html"
+        html = landing_path.read_text()
+
+        self.assertNotIn(
+            'href="last-week-updates-from-microsoft/index.html"',
+            html,
+            "landing page should not link to a topic without built HTML",
+        )
+        self.assertIn("4 Active Briefings", html)
+
 
 if __name__ == "__main__":
     unittest.main()
