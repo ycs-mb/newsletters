@@ -41,8 +41,10 @@ class BuildLayoutTest(unittest.TestCase):
             REPO_ROOT / "dist" / "claude-digest" / "index.html",
             REPO_ROOT / "dist" / "google-ai" / "index.html",
             REPO_ROOT / "dist" / "us-iran-war" / "index.html",
+            REPO_ROOT / "dist" / "manage.html",
             REPO_ROOT / "dist" / "style.css",
             REPO_ROOT / "dist" / "portal.css",
+            REPO_ROOT / "dist" / ".nojekyll",
         ]
 
         missing = [str(path.relative_to(REPO_ROOT)) for path in expected_files if not path.exists()]
@@ -77,11 +79,22 @@ class BuildLayoutTest(unittest.TestCase):
         html = landing_path.read_text()
 
         self.assertNotIn(
-            'href="last-week-updates-from-microsoft/index.html"',
+            'href="indian-parliament-session/index.html"',
             html,
             "landing page should not link to a topic without built HTML",
         )
-        self.assertIn("4 Active Briefings", html)
+        self.assertIn("5 Active Briefings", html)
+
+    def test_manage_page_resolves_portal_placeholders(self) -> None:
+        """Verify the built manage page receives concrete portal config values."""
+        manage_path = REPO_ROOT / "dist" / "manage.html"
+        self.assertTrue(manage_path.exists(), "manage page not found in dist/manage.html")
+
+        html = manage_path.read_text()
+        self.assertNotIn("{{PORTAL_API_BASE_URL}}", html)
+        self.assertNotIn("{{PORTAL_MANAGEMENT_MODE}}", html)
+        self.assertIn("const PORTAL_API_BASE_URL = '';", html)
+        self.assertIn("const PORTAL_MANAGEMENT_MODE = 'server';", html)
 
 
 if __name__ == "__main__":

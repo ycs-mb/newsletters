@@ -3,6 +3,7 @@
 # ///
 """Static site generator for the newsletter portal."""
 
+import os
 import re
 import shutil
 import tomllib
@@ -26,6 +27,18 @@ def load_config() -> dict:
         return json.loads(json_path.read_text())
     with open(REPO_ROOT / "topics.toml", "rb") as f:
         return tomllib.load(f)
+
+
+def get_portal_config() -> dict[str, str]:
+    """Load static-hosting configuration for the built portal."""
+    api_base_url = os.environ.get("PORTAL_API_BASE_URL", "").strip().rstrip("/")
+    management_mode = os.environ.get("PORTAL_MANAGEMENT_MODE", "").strip() or (
+        "external" if api_base_url else "server"
+    )
+    return {
+        "api_base_url": api_base_url,
+        "management_mode": management_mode,
+    }
 
 
 def discover_dates(topic_dir: Path) -> list[str]:
@@ -186,7 +199,9 @@ def render_context_infographic(url: str) -> str:
     )
 
 
-def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
+def render_media_section(
+    slug: str, date: str, media: dict[str, str], portal_config: dict[str, str]
+) -> str:
     """Render media section HTML.
 
     Shows infographic and slides if available.
@@ -246,7 +261,7 @@ def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
         )
 
     inner = "\n".join(parts)
-    script = _media_js()
+    script = _media_js(portal_config)
     return (
         f'<section class="portal-media-section" data-slug="{slug}" data-date="{date}">\n'
         f'<h2 class="section-title">Media</h2>\n'
@@ -256,13 +271,28 @@ def render_media_section(slug: str, date: str, media: dict[str, str]) -> str:
     )
 
 
-def _media_js() -> str:
+def _media_js(portal_config: dict[str, str]) -> str:
     """Inline JS for on-demand media generation buttons (injected once per page)."""
-    return """<script>
+    api_base_url = portal_config["api_base_url"]
+    management_mode = portal_config["management_mode"]
+    return f"""<script>
+const PORTAL_API_BASE_URL = {api_base_url!r};
+const PORTAL_MANAGEMENT_MODE = {management_mode!r};
+const PORTAL_READ_ONLY_MESSAGE = 'Media generation needs a live API backend. Set PORTAL_API_BASE_URL before publishing if you want these controls enabled.';
+
+function portalApiUrl(path) {{
+  const base = (PORTAL_API_BASE_URL || '/api').replace(/\/+$/, '');
+  return base + path;
+}}
+
 function startGeneration(slug, date, type, btn) {
+  if (PORTAL_MANAGEMENT_MODE === 'static') {
+    btn.textContent = 'API backend required';
+    return;
+  }
   btn.disabled = true;
   btn.textContent = '⏳ Generating…';
-  fetch('/api/generate/' + slug + '/' + date + '/' + type, {method: 'POST'})
+  fetch(portalApiUrl('/generate/' + slug + '/' + date + '/' + type), {method: 'POST'})
     .then(r => r.json())
     .then(data => {
       if (data.job_id) pollJob(data.job_id, slug, date, type, btn);
@@ -271,7 +301,7 @@ function startGeneration(slug, date, type, btn) {
     .catch(() => { btn.textContent = '❌ Error'; btn.disabled = false; });
 }
 function pollJob(jobId, slug, date, type, btn) {
-  fetch('/api/jobs/' + jobId)
+  fetch(portalApiUrl('/jobs/' + jobId))
     .then(r => r.json())
     .then(data => {
       if (data.status === 'done') { location.reload(); }
@@ -285,6 +315,14 @@ function pollJob(jobId, slug, date, type, btn) {
     })
     .catch(() => setTimeout(() => pollJob(jobId, slug, date, type, btn), 15000));
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (PORTAL_MANAGEMENT_MODE !== 'static') return;
+  document.querySelectorAll('.media-gen-btn').forEach(btn => {
+    btn.disabled = true;
+    btn.title = PORTAL_READ_ONLY_MESSAGE;
+  });
+});
 </script>"""
 
 
@@ -375,11 +413,13 @@ def build_landing(config: dict, topic_metas: dict, archive_count: int = 0) -> st
 
 def build():
     config = load_config()
+    portal_config = get_portal_config()
 
     # Clean and recreate dist/
     if DIST_DIR.exists():
         shutil.rmtree(DIST_DIR)
     DIST_DIR.mkdir()
+    (DIST_DIR / ".nojekyll").write_text("")
 
     # Copy shared assets
     shutil.copy2(SHARED_STYLESHEET, DIST_DIR / "style.css")
@@ -390,7 +430,12 @@ def build():
     # Copy management page
     manage_src = TEMPLATES_DIR / "manage.html"
     if manage_src.exists():
-        shutil.copy2(manage_src, DIST_DIR / "manage.html")
+        manage_html = (
+            manage_src.read_text()
+            .replace("{{PORTAL_API_BASE_URL}}", portal_config["api_base_url"])
+            .replace("{{PORTAL_MANAGEMENT_MODE}}", portal_config["management_mode"])
+        )
+        (DIST_DIR / "manage.html").write_text(manage_html)
 
     topic_metas = {}
     archive_entries: list[dict] = []
@@ -445,7 +490,7 @@ def build():
             output_html = output_html.replace("{{CONTEXT_INFOGRAPHIC}}", context_html)
 
             # Inject bottom media section (podcast / video on-demand)
-            media_html = render_media_section(slug, date, media)
+            media_html = render_media_section(slug, date, media, portal_config)
             output_html = output_html.replace("{{MEDIA_SECTION}}", media_html)
 
             (topic_dist / f"{date}.html").write_text(output_html)
