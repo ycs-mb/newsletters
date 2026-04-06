@@ -281,48 +281,48 @@ const PORTAL_MANAGEMENT_MODE = {management_mode!r};
 const PORTAL_READ_ONLY_MESSAGE = 'Media generation needs a live API backend. Set PORTAL_API_BASE_URL before publishing if you want these controls enabled.';
 
 function portalApiUrl(path) {{
-  const base = (PORTAL_API_BASE_URL || '/api').replace(/\/+$/, '');
+  const base = (PORTAL_API_BASE_URL || '/api').replace(/\\/+$/, '');
   return base + path;
 }}
 
-function startGeneration(slug, date, type, btn) {
-  if (PORTAL_MANAGEMENT_MODE === 'static') {
+function startGeneration(slug, date, type, btn) {{
+  if (PORTAL_MANAGEMENT_MODE === 'static') {{
     btn.textContent = 'API backend required';
     return;
-  }
+  }}
   btn.disabled = true;
   btn.textContent = '⏳ Generating…';
-  fetch(portalApiUrl('/generate/' + slug + '/' + date + '/' + type), {method: 'POST'})
+  fetch(portalApiUrl('/generate/' + slug + '/' + date + '/' + type), {{method: 'POST'}})
     .then(r => r.json())
-    .then(data => {
+    .then(data => {{
       if (data.job_id) pollJob(data.job_id, slug, date, type, btn);
-      else { btn.textContent = '❌ Error'; btn.disabled = false; }
-    })
-    .catch(() => { btn.textContent = '❌ Error'; btn.disabled = false; });
-}
-function pollJob(jobId, slug, date, type, btn) {
+      else {{ btn.textContent = '❌ Error'; btn.disabled = false; }}
+    }})
+    .catch(() => {{ btn.textContent = '❌ Error'; btn.disabled = false; }});
+}}
+function pollJob(jobId, slug, date, type, btn) {{
   fetch(portalApiUrl('/jobs/' + jobId))
     .then(r => r.json())
-    .then(data => {
-      if (data.status === 'done') { location.reload(); }
-      else if (data.status === 'failed') {
+    .then(data => {{
+      if (data.status === 'done') {{ location.reload(); }}
+      else if (data.status === 'failed') {{
         btn.textContent = '❌ Failed: ' + (data.error || 'unknown');
         btn.disabled = false;
-      } else {
+      }} else {{
         btn.textContent = '⏳ ' + (data.step || 'Generating…');
         setTimeout(() => pollJob(jobId, slug, date, type, btn), 10000);
-      }
-    })
+      }}
+    }})
     .catch(() => setTimeout(() => pollJob(jobId, slug, date, type, btn), 15000));
-}
+}}
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {{
   if (PORTAL_MANAGEMENT_MODE !== 'static') return;
-  document.querySelectorAll('.media-gen-btn').forEach(btn => {
+  document.querySelectorAll('.media-gen-btn').forEach(btn => {{
     btn.disabled = true;
     btn.title = PORTAL_READ_ONLY_MESSAGE;
-  });
-});
+  }});
+}});
 </script>"""
 
 
