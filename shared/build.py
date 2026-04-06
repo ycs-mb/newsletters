@@ -10,6 +10,7 @@ import tomllib
 from datetime import datetime
 from html import escape
 from pathlib import Path
+from urllib.parse import urlparse
 
 SHARED_DIR = Path(__file__).parent
 REPO_ROOT = SHARED_DIR.parent
@@ -31,7 +32,9 @@ def load_config() -> dict:
 
 def get_portal_config() -> dict[str, str]:
     """Load static-hosting configuration for the built portal."""
-    api_base_url = os.environ.get("PORTAL_API_BASE_URL", "").strip().rstrip("/")
+    api_base_url = validate_api_base_url(
+        os.environ.get("PORTAL_API_BASE_URL", "").strip().rstrip("/")
+    )
     management_mode = os.environ.get("PORTAL_MANAGEMENT_MODE", "").strip() or (
         "external" if api_base_url else "server"
     )
@@ -39,6 +42,22 @@ def get_portal_config() -> dict[str, str]:
         "api_base_url": api_base_url,
         "management_mode": management_mode,
     }
+
+
+def validate_api_base_url(api_base_url: str) -> str:
+    """Validate an injected API base URL before embedding it in static HTML."""
+    if not api_base_url:
+        return ""
+    if api_base_url.startswith("/"):
+        return api_base_url
+
+    parsed = urlparse(api_base_url)
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        return api_base_url
+
+    raise ValueError(
+        "PORTAL_API_BASE_URL must be an absolute http(s) URL or a root-relative path."
+    )
 
 
 def discover_dates(topic_dir: Path) -> list[str]:
